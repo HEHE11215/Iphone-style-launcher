@@ -227,6 +227,17 @@ fun launchCamera(context: Context) {
     }
 }
 
+fun launchBrowser(context: Context) {
+    try {
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.google.com")).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        context.startActivity(intent)
+    } catch (e: Exception) {
+        Toast.makeText(context, "Browser unavailable", Toast.LENGTH_SHORT).show()
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AppDrawerScreen(

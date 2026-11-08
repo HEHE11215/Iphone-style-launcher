@@ -216,91 +216,105 @@ fun DashboardHomePage(
             )
         }
 
-        // 2. Launcher Quick Apps Bar (Phone, Messages, Camera, All Apps, Settings)
+        // 2. Pixel / Stock Android Style Home Search Bar Widget
         item {
             GlassCard(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .testTag("home_quick_apps_card"),
-                cornerRadius = 24.dp
+                    .clickable(onClick = onOpenAppDrawer)
+                    .testTag("home_google_search_bar"),
+                cornerRadius = 28.dp
             ) {
-                Column(
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 14.dp, vertical = 14.dp)
+                        .padding(horizontal = 18.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
+                    CustomGlassIcon(
+                        glyph = AeroIconGlyph.SEARCH,
+                        size = 22.dp,
+                        tint = tokens.accentPrimary
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text(
+                        text = "Search apps, web, device...",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = tokens.textSecondary,
+                        modifier = Modifier.weight(1f)
+                    )
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            text = "QUICK APPS",
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = tokens.accentPrimary
+                        CustomGlassIcon(
+                            glyph = AeroIconGlyph.DISCOVER_NEWS,
+                            size = 18.dp,
+                            tint = tokens.accentSecondary
                         )
-                        Text(
-                            text = "All Apps (${installedAppsPreview.count()}+) →",
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = tokens.accentSecondary,
-                            modifier = Modifier.clickable(onClick = onOpenAppDrawer)
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceAround,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        HomeAppLauncherShortcut(
-                            glyph = AeroIconGlyph.PHONE,
-                            label = "Phone",
-                            tint = EmeraldPulse,
-                            onClick = { launchPhone(context) }
-                        )
-                        HomeAppLauncherShortcut(
-                            glyph = AeroIconGlyph.MESSAGES,
-                            label = "Messages",
-                            tint = tokens.accentPrimary,
-                            onClick = { launchMessages(context) }
-                        )
-                        HomeAppLauncherShortcut(
-                            glyph = AeroIconGlyph.CAMERA,
-                            label = "Camera",
-                            tint = AmberGlow,
-                            onClick = { launchCamera(context) }
-                        )
-                        HomeAppLauncherShortcut(
+                        CustomGlassIcon(
                             glyph = AeroIconGlyph.APPS_DRAWER,
-                            label = "All Apps",
-                            tint = tokens.accentSecondary,
-                            onClick = onOpenAppDrawer
-                        )
-                        HomeAppLauncherShortcut(
-                            glyph = AeroIconGlyph.SETTINGS,
-                            label = "Settings",
-                            tint = tokens.textPrimary,
-                            onClick = { openDefaultHomeSettings(context) }
+                            size = 18.dp,
+                            tint = tokens.accentPrimary
                         )
                     }
+                }
+            }
+        }
 
-                    if (installedAppsPreview.isNotEmpty()) {
-                        Spacer(modifier = Modifier.height(14.dp))
+        // 3. Stock Android Home Screen App Grid (4 columns of installed favorite apps)
+        if (installedAppsPreview.isNotEmpty()) {
+            item {
+                GlassCard(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("home_favorite_apps_grid"),
+                    cornerRadius = 24.dp
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 14.dp, vertical = 14.dp)
+                    ) {
                         Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .horizontalScroll(rememberScrollState()),
-                            horizontalArrangement = Arrangement.spacedBy(14.dp)
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            for (app in installedAppsPreview) {
-                                HomeInstalledAppMiniBadge(
-                                    app = app,
-                                    onClick = { launchApp(context, app.packageName) }
-                                )
+                            Text(
+                                text = "FAVORITE APPS",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = tokens.accentPrimary
+                            )
+                            Text(
+                                text = "All Apps (${installedAppsPreview.count()}+) →",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = tokens.accentSecondary,
+                                modifier = Modifier.clickable(onClick = onOpenAppDrawer)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        val displayedApps = installedAppsPreview.take(8)
+                        Column(
+                            verticalArrangement = Arrangement.spacedBy(14.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            displayedApps.chunked(4).forEach { rowApps ->
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceAround
+                                ) {
+                                    rowApps.forEach { app ->
+                                        HomeInstalledAppMiniBadge(
+                                            app = app,
+                                            onClick = { launchApp(context, app.packageName) }
+                                        )
+                                    }
+                                }
                             }
                         }
                     }

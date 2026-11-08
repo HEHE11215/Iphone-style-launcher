@@ -14,6 +14,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -79,6 +80,9 @@ import com.example.ui.screens.AuthScreen
 import com.example.ui.screens.DashboardHomePage
 import com.example.ui.screens.DiscoverFeedPage
 import com.example.ui.screens.SystemOptimizerAndSettingsPage
+import com.example.ui.screens.launchPhone
+import com.example.ui.screens.launchMessages
+import com.example.ui.screens.launchCamera
 import com.example.ui.screens.signOut
 import com.example.ui.theme.AeroGlassTheme
 import com.example.ui.theme.LocalGlassTokens
@@ -474,7 +478,7 @@ private fun TopGlassStatusHeader(
     BoxWithConstraints(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 6.dp)
+            .padding(horizontal = 20.dp, vertical = 6.dp)
     ) {
         val isNarrow = maxWidth < 380.dp
 
@@ -483,36 +487,31 @@ private fun TopGlassStatusHeader(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Page Navigation Pills
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(if (isNarrow) 3.dp else 6.dp)
+            // Left: Clean stock launcher indicator
+            Box(
+                modifier = Modifier
+                    .clip(CircleShape)
+                    .background(tokens.accentPrimary.copy(alpha = 0.20f))
+                    .clickable { onSelectPage(1) }
+                    .padding(horizontal = 12.dp, vertical = 5.dp)
             ) {
-                listOf("Discover", "Home", "Apps", "Control").forEachIndexed { idx, label ->
-                    val active = currentPage == idx
-                    Box(
-                        modifier = Modifier
-                            .defaultMinSize(minWidth = if (isNarrow) 36.dp else 44.dp, minHeight = 36.dp)
-                            .clip(CircleShape)
-                            .background(if (active) tokens.accentPrimary.copy(alpha = 0.24f) else Color.Transparent)
-                            .clickable { onSelectPage(idx) }
-                            .padding(horizontal = if (isNarrow) 7.dp else 10.dp, vertical = 5.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = label,
-                            style = if (isNarrow) MaterialTheme.typography.labelSmall.copy(fontSize = androidx.compose.ui.unit.TextUnit(10.5f, androidx.compose.ui.unit.TextUnitType.Sp)) else MaterialTheme.typography.labelSmall,
-                            fontWeight = if (active) FontWeight.Bold else FontWeight.Normal,
-                            color = if (active) tokens.accentPrimary else tokens.textSecondary
-                        )
-                    }
-                }
+                Text(
+                    text = when (currentPage) {
+                        0 -> "Google Discover"
+                        2 -> "All Applications"
+                        3 -> "Control Center"
+                        else -> "AeroGlass Home"
+                    },
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = tokens.accentPrimary
+                )
             }
 
-            // Quick Status Chips
+            // Right: Quick Status Chips (Guest, DND, Glass Level)
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 if (isGuestSession) {
                     Box(
@@ -520,7 +519,7 @@ private fun TopGlassStatusHeader(
                             .clip(CircleShape)
                             .background(tokens.accentSecondary.copy(alpha = 0.22f))
                             .clickable { onSelectPage(3) }
-                            .padding(horizontal = 7.dp, vertical = 4.dp)
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
                     ) {
                         Text(
                             text = "GUEST",
@@ -535,7 +534,7 @@ private fun TopGlassStatusHeader(
                         modifier = Modifier
                             .clip(CircleShape)
                             .background(tokens.accentSecondary.copy(alpha = 0.22f))
-                            .padding(horizontal = 7.dp, vertical = 4.dp)
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
                     ) {
                         Text(
                             text = "DND",
@@ -549,7 +548,7 @@ private fun TopGlassStatusHeader(
                         .clip(CircleShape)
                         .background(tokens.cardFillTop)
                         .clickable { onSelectPage(3) }
-                        .padding(horizontal = if (isNarrow) 7.dp else 9.dp, vertical = 4.dp)
+                        .padding(horizontal = 10.dp, vertical = 4.dp)
                 ) {
                     Text(
                         text = "${blurPercent}% Glass",
@@ -568,15 +567,37 @@ private fun FloatingLiquidGlassDock(
     onSelectPage: (Int) -> Unit
 ) {
     val tokens = LocalGlassTokens.current
+    val context = LocalContext.current
 
-    BoxWithConstraints(
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
             .fillMaxWidth()
             .widthIn(max = 480.dp)
             .testTag("floating_glass_dock")
     ) {
-        val isNarrowDock = maxWidth < 370.dp
+        // Stock Android Page Indicator Dots: Discover (0), Home (1), Apps (2), Control (3)
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(bottom = 6.dp)
+        ) {
+            repeat(4) { idx ->
+                val active = currentPage == idx
+                Box(
+                    modifier = Modifier
+                        .size(if (active) 8.dp else 5.dp)
+                        .clip(CircleShape)
+                        .background(
+                            if (active) tokens.accentPrimary
+                            else tokens.textSecondary.copy(alpha = 0.40f)
+                        )
+                        .clickable { onSelectPage(idx) }
+                )
+            }
+        }
 
+        // Authentic Stock Android 5-Icon Glass Shelf
         GlassCard(
             modifier = Modifier.fillMaxWidth(),
             cornerRadius = 32.dp,
@@ -585,41 +606,68 @@ private fun FloatingLiquidGlassDock(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = if (isNarrowDock) 6.dp else 12.dp, vertical = 6.dp),
-                horizontalArrangement = Arrangement.SpaceEvenly,
+                    .padding(horizontal = 10.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceAround,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                DockItem(
-                    glyph = AeroIconGlyph.DISCOVER_NEWS,
-                    label = "Discover",
-                    selected = currentPage == 0,
-                    compact = isNarrowDock,
-                    onClick = { onSelectPage(0) },
-                    testTag = "dock_tab_discover"
+                // 1. Phone App (Dialer)
+                StockDockAppIcon(
+                    glyph = AeroIconGlyph.PHONE,
+                    label = "Phone",
+                    containerBrush = Brush.linearGradient(listOf(Color(0xFF10B981), Color(0xFF059669))),
+                    glyphTint = Color.White,
+                    onClick = { launchPhone(context) },
+                    testTag = "dock_app_phone"
                 )
-                DockItem(
-                    glyph = AeroIconGlyph.DASHBOARD,
-                    label = "Home",
-                    selected = currentPage == 1,
-                    compact = isNarrowDock,
-                    onClick = { onSelectPage(1) },
-                    testTag = "dock_tab_home"
+
+                // 2. Messages App (SMS)
+                StockDockAppIcon(
+                    glyph = AeroIconGlyph.MESSAGES,
+                    label = "Messages",
+                    containerBrush = Brush.linearGradient(listOf(Color(0xFF38BDF8), Color(0xFF0284C7))),
+                    glyphTint = Color.White,
+                    onClick = { launchMessages(context) },
+                    testTag = "dock_app_messages"
                 )
-                DockItem(
-                    glyph = AeroIconGlyph.APPS_DRAWER,
-                    label = "Apps",
-                    selected = currentPage == 2,
-                    compact = isNarrowDock,
-                    onClick = { onSelectPage(2) },
-                    testTag = "dock_tab_apps"
+
+                // 3. Central Launcher Button (App Drawer / Home)
+                val inDrawer = currentPage == 2
+                StockDockAppIcon(
+                    glyph = if (inDrawer) AeroIconGlyph.DASHBOARD else AeroIconGlyph.APPS_DRAWER,
+                    label = if (inDrawer) "Home" else "Apps",
+                    containerBrush = Brush.linearGradient(
+                        listOf(
+                            tokens.accentPrimary.copy(alpha = 0.35f),
+                            tokens.accentSecondary.copy(alpha = 0.25f)
+                        )
+                    ),
+                    glyphTint = tokens.accentPrimary,
+                    isCenterKey = true,
+                    onClick = {
+                        if (inDrawer) onSelectPage(1) else onSelectPage(2)
+                    },
+                    testTag = "dock_app_drawer"
                 )
-                DockItem(
+
+                // 4. Camera App
+                StockDockAppIcon(
+                    glyph = AeroIconGlyph.CAMERA,
+                    label = "Camera",
+                    containerBrush = Brush.linearGradient(listOf(Color(0xFF475569), Color(0xFF1E293B))),
+                    glyphTint = Color(0xFFF8FAFC),
+                    onClick = { launchCamera(context) },
+                    testTag = "dock_app_camera"
+                )
+
+                // 5. Settings / Control Center
+                StockDockAppIcon(
                     glyph = AeroIconGlyph.QUICK_SETTINGS,
                     label = "Control",
+                    containerBrush = Brush.linearGradient(listOf(Color(0xFF8B5CF6), Color(0xFF6D28D9))),
+                    glyphTint = Color.White,
                     selected = currentPage == 3,
-                    compact = isNarrowDock,
                     onClick = { onSelectPage(3) },
-                    testTag = "dock_tab_control"
+                    testTag = "dock_app_settings"
                 )
             }
         }
@@ -627,65 +675,51 @@ private fun FloatingLiquidGlassDock(
 }
 
 @Composable
-private fun DockItem(
+private fun StockDockAppIcon(
     glyph: AeroIconGlyph,
     label: String,
-    selected: Boolean,
-    compact: Boolean,
+    containerBrush: Brush,
+    glyphTint: Color,
+    selected: Boolean = false,
+    isCenterKey: Boolean = false,
     onClick: () -> Unit,
     testTag: String
 ) {
-    val tokens = LocalGlassTokens.current
-    Box(
+    val iconSize = if (isCenterKey) 52.dp else 48.dp
+    val glyphSize = if (isCenterKey) 26.dp else 22.dp
+
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
-            .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
-            .clip(RoundedCornerShape(22.dp))
-            .background(
-                if (selected) tokens.accentPrimary.copy(alpha = 0.24f)
-                else Color.Transparent
-            )
+            .defaultMinSize(minWidth = 52.dp, minHeight = 52.dp)
+            .clip(CircleShape)
             .clickable(onClick = onClick)
-            .padding(horizontal = if (compact) 8.dp else 12.dp, vertical = 6.dp)
-            .testTag(testTag),
-        contentAlignment = Alignment.Center
+            .padding(2.dp)
+            .testTag(testTag)
     ) {
-        if (compact) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
-            ) {
-                CustomGlassIcon(
-                    glyph = glyph,
-                    size = 20.dp,
-                    tint = if (selected) tokens.accentPrimary else tokens.textSecondary,
-                    secondaryTint = tokens.accentSecondary
-                )
-                Spacer(modifier = Modifier.height(2.dp))
-                Text(
-                    text = label,
-                    style = MaterialTheme.typography.labelSmall.copy(fontSize = androidx.compose.ui.unit.TextUnit(10f, androidx.compose.ui.unit.TextUnitType.Sp)),
-                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
-                    color = if (selected) tokens.textPrimary else tokens.textSecondary
-                )
-            }
-        } else {
-            Row(
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                CustomGlassIcon(
-                    glyph = glyph,
-                    size = 20.dp,
-                    tint = if (selected) tokens.accentPrimary else tokens.textSecondary,
-                    secondaryTint = tokens.accentSecondary
-                )
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(
-                    text = label,
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
-                    color = if (selected) tokens.textPrimary else tokens.textSecondary
-                )
-            }
+        Box(
+            modifier = Modifier
+                .size(iconSize)
+                .clip(CircleShape)
+                .background(containerBrush)
+                .border(
+                    width = 1.dp,
+                    brush = Brush.verticalGradient(
+                        colors = listOf(
+                            Color.White.copy(alpha = 0.55f),
+                            Color.White.copy(alpha = 0.15f)
+                        )
+                    ),
+                    shape = CircleShape
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            CustomGlassIcon(
+                glyph = glyph,
+                size = glyphSize,
+                tint = glyphTint,
+                secondaryTint = Color.White.copy(alpha = 0.75f)
+            )
         }
     }
 }
