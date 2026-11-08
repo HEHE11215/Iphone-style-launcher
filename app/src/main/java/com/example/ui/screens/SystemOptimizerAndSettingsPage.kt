@@ -66,6 +66,7 @@ fun SystemOptimizerAndSettingsPage(
     onSelectIconPack: (CustomIconPack) -> Unit,
     onToggleParallax: (Boolean) -> Unit,
     onSignOut: () -> Unit,
+    isGuestSession: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val tokens = LocalGlassTokens.current
@@ -580,12 +581,13 @@ fun SystemOptimizerAndSettingsPage(
                 ) {
                     Column {
                         Text(
-                            text = "Cloud Synced Account",
+                            text = if (isGuestSession) "Guest Local Workspace" else "Cloud Synced Account",
                             style = MaterialTheme.typography.titleMedium,
                             color = tokens.textPrimary
                         )
                         Text(
-                            text = "Sign out of Google Workspace session",
+                            text = if (isGuestSession) "Tap to sign in with Google for cloud sync"
+                            else "Sign out of Google Workspace session",
                             style = MaterialTheme.typography.bodyMedium,
                             color = tokens.textSecondary
                         )

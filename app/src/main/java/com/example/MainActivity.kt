@@ -47,6 +47,7 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -99,10 +100,14 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun AeroGlassRootApp() {
     var currentUser by remember { mutableStateOf(Firebase.auth.currentUser) }
+    var isGuestMode by rememberSaveable { mutableStateOf(false) }
 
     DisposableEffect(Unit) {
         val listener = FirebaseAuth.AuthStateListener { auth ->
             currentUser = auth.currentUser
+            if (auth.currentUser != null) {
+                isGuestMode = false
+            }
         }
         Firebase.auth.addAuthStateListener(listener)
         onDispose {
@@ -110,30 +115,43 @@ fun AeroGlassRootApp() {
         }
     }
 
-    if (currentUser == null) {
+    if (currentUser == null && !isGuestMode) {
         AeroGlassTheme {
             AuthScreen(
-                onAuthSuccess = { currentUser = Firebase.auth.currentUser }
+                onAuthSuccess = {
+                    currentUser = Firebase.auth.currentUser
+                    isGuestMode = false
+                },
+                onContinueAsGuest = {
+                    isGuestMode = true
+                }
             )
         }
     } else {
-        val uid = currentUser!!.uid
-        key(uid) {
-            AuthenticatedGlassWorkspace(currentUserId = uid)
+        val uid = currentUser?.uid ?: "guest_local"
+        val isGuestSession = currentUser == null
+        key(uid, isGuestSession) {
+            AuthenticatedGlassWorkspace(
+                currentUserId = uid,
+                isGuestSession = isGuestSession,
+                onExitGuestMode = { isGuestMode = false }
+            )
         }
     }
 }
 
 @Composable
 fun AuthenticatedGlassWorkspace(
-    currentUserId: String
+    currentUserId: String,
+    isGuestSession: Boolean = false,
+    onExitGuestMode: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val credentialManager = remember(context) { CredentialManager.create(context) }
 
     val viewModel: GlassDashboardViewModel = viewModel(
-        key = currentUserId,
+        key = "${currentUserId}_${isGuestSession}",
         factory = viewModelFactory {
             initializer {
                 val app = checkNotNull(this[APPLICATION_KEY]) {
@@ -143,7 +161,9 @@ fun AuthenticatedGlassWorkspace(
                 val db = FirebaseFirestore.getInstance(databaseId)
                 GlassDashboardViewModel(
                     repository = GlassDashboardRepository(db),
-                    currentUserId = currentUserId
+                    currentUserId = currentUserId,
+                    isGuestSession = isGuestSession,
+                    appContext = app
                 )
             }
         }
@@ -224,7 +244,6 @@ fun AuthenticatedGlassWorkspace(
             )
 
             if (isExpandedScreen) {
-                // Tablet / Foldable Canonical Multi-Pane Glass Workspace
                 Row(
                     modifier = Modifier
                         .fillMaxSize()
@@ -287,25 +306,29 @@ fun AuthenticatedGlassWorkspace(
                                 onSelectThemeMode = viewModel::updateThemeMode,
                                 onSelectIconPack = viewModel::updateIconPack,
                                 onToggleParallax = viewModel::toggleParallax,
+                                isGuestSession = isGuestSession,
                                 onSignOut = {
-                                    signOut(credentialManager, scope)
+                                    if (isGuestSession) {
+                                        onExitGuestMode()
+                                    } else {
+                                        signOut(credentialManager, scope)
+                                    }
                                 }
                             )
                         }
                     }
                 }
             } else {
-                // Handheld Responsive Edge-to-Edge Pager + Floating iOS 18 Glass Dock
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
                         .windowInsetsPadding(WindowInsets.statusBars)
                 ) {
-                    // Top Minimalist Glass Status Bar
                     TopGlassStatusHeader(
                         currentPage = pagerState.currentPage,
                         blurPercent = preferences.blurIntensity.toInt(),
                         focusDndActive = quickSettings.focusDndEnabled,
+                        isGuestSession = isGuestSession,
                         onSelectPage = { page ->
                             scope.launch { pagerState.animateScrollToPage(page) }
                         }
@@ -378,15 +401,19 @@ fun AuthenticatedGlassWorkspace(
                                 onSelectThemeMode = viewModel::updateThemeMode,
                                 onSelectIconPack = viewModel::updateIconPack,
                                 onToggleParallax = viewModel::toggleParallax,
+                                isGuestSession = isGuestSession,
                                 onSignOut = {
-                                    signOut(credentialManager, scope)
+                                    if (isGuestSession) {
+                                        onExitGuestMode()
+                                    } else {
+                                        signOut(credentialManager, scope)
+                                    }
                                 }
                             )
                         }
                     }
                 }
 
-                // Floating Bottom Liquid Glass Dock
                 Box(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
@@ -430,6 +457,7 @@ private fun TopGlassStatusHeader(
     currentPage: Int,
     blurPercent: Int,
     focusDndActive: Boolean,
+    isGuestSession: Boolean,
     onSelectPage: (Int) -> Unit
 ) {
     val tokens = LocalGlassTokens.current
@@ -464,8 +492,23 @@ private fun TopGlassStatusHeader(
 
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
+            if (isGuestSession) {
+                Box(
+                    modifier = Modifier
+                        .clip(CircleShape)
+                        .background(tokens.accentSecondary.copy(alpha = 0.22f))
+                        .clickable { onSelectPage(2) }
+                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                ) {
+                    Text(
+                        text = "GUEST",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = tokens.textPrimary
+                    )
+                }
+            }
             if (focusDndActive) {
                 Box(
                     modifier = Modifier

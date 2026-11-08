@@ -5,6 +5,7 @@ import android.content.Context
 import android.util.Log
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -26,6 +27,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -175,7 +177,8 @@ fun signOut(
 
 @Composable
 fun AuthScreen(
-    onAuthSuccess: () -> Unit
+    onAuthSuccess: () -> Unit,
+    onContinueAsGuest: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -216,7 +219,7 @@ fun AuthScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .windowInsetsPadding(WindowInsets.safeDrawing)
-                .padding(horizontal = 24.dp, vertical = 20.dp),
+                .padding(horizontal = 24.dp, vertical = 18.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.SpaceBetween
         ) {
@@ -237,25 +240,25 @@ fun AuthScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(28.dp),
+                        .padding(24.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(64.dp)
-                            .clip(RoundedCornerShape(20.dp))
+                            .size(58.dp)
+                            .clip(RoundedCornerShape(18.dp))
                             .background(tokens.accentPrimary.copy(alpha = 0.18f)),
                         contentAlignment = Alignment.Center
                     ) {
                         CustomGlassIcon(
                             glyph = AeroIconGlyph.DASHBOARD,
-                            size = 36.dp,
+                            size = 34.dp,
                             tint = tokens.accentPrimary,
                             secondaryTint = tokens.accentSecondary
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(14.dp))
 
                     Text(
                         text = "AeroGlass Workspace",
@@ -264,16 +267,16 @@ fun AuthScreen(
                         textAlign = TextAlign.Center
                     )
 
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(6.dp))
 
                     Text(
-                        text = "Ultra-lightweight iOS 18 Liquid Glass task dashboard with 3D spatial clock, Pixel Discover feed, 90Hz+ RAM boost, and cloud-synced smart reminders.",
+                        text = "Ultra-lightweight iOS 18 Liquid Glass task dashboard with 3D spatial clock, Pixel Discover feed, 90Hz+ RAM boost, and smart reminders.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = tokens.textSecondary,
                         textAlign = TextAlign.Center
                     )
 
-                    Spacer(modifier = Modifier.height(20.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -285,7 +288,7 @@ fun AuthScreen(
                     }
 
                     if (errorMessage != null) {
-                        Spacer(modifier = Modifier.height(16.dp))
+                        Spacer(modifier = Modifier.height(12.dp))
                         Text(
                             text = errorMessage!!,
                             style = MaterialTheme.typography.bodyMedium,
@@ -294,7 +297,7 @@ fun AuthScreen(
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(24.dp))
+                    Spacer(modifier = Modifier.height(20.dp))
 
                     Button(
                         onClick = {
@@ -325,7 +328,7 @@ fun AuthScreen(
                         ),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(54.dp)
+                            .height(52.dp)
                             .testTag("google_sign_in_button")
                     ) {
                         if (isLoading) {
@@ -342,11 +345,37 @@ fun AuthScreen(
                             )
                         }
                     }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    OutlinedButton(
+                        onClick = onContinueAsGuest,
+                        shape = RoundedCornerShape(18.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = tokens.textPrimary
+                        ),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(50.dp)
+                            .border(
+                                width = 1.dp,
+                                color = tokens.borderHighlight,
+                                shape = RoundedCornerShape(18.dp)
+                            )
+                            .testTag("continue_as_guest_button")
+                    ) {
+                        Text(
+                            text = "Continue as Guest (Instant Local Mode)",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = tokens.textPrimary
+                        )
+                    }
                 }
             }
 
             Text(
-                text = "Zero-Overdraw Frosted Shader • Cloud Sync Enabled",
+                text = "Zero-Overdraw Frosted Shader • Cloud Sync or Local Guest Mode",
                 style = MaterialTheme.typography.labelSmall,
                 color = tokens.textSecondary.copy(alpha = 0.8f)
             )
