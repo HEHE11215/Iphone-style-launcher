@@ -72,6 +72,7 @@ import com.example.ui.components.AeroIconGlyph
 import com.example.ui.components.CustomGlassIcon
 import com.example.ui.components.GlassCard
 import com.example.ui.screens.AddTaskModalSheet
+import com.example.ui.screens.AppDrawerScreen
 import com.example.ui.screens.AuthScreen
 import com.example.ui.screens.DashboardHomePage
 import com.example.ui.screens.DiscoverFeedPage
@@ -207,8 +208,8 @@ fun AuthenticatedGlassWorkspace(
 
     var showAddTaskSheet by remember { mutableStateOf(false) }
 
-    // Page 0 = Left Pixel Discover & Weather, Page 1 = Main Home Clock & Tasks, Page 2 = RAM/Battery & Quick Settings
-    val pagerState = rememberPagerState(initialPage = 1, pageCount = { 3 })
+    // Page 0 = Discover & Weather, Page 1 = Home 3D Clock & Tasks, Page 2 = Apps Drawer, Page 3 = Control & RAM
+    val pagerState = rememberPagerState(initialPage = 1, pageCount = { 4 })
 
     BackHandler(enabled = pagerState.currentPage != 1) {
         scope.launch {
@@ -280,22 +281,25 @@ fun AuthenticatedGlassWorkspace(
                             onCommitReorderedTasks = viewModel::commitReorderedTasks,
                             onQuickRamClean = { viewModel.performRamCleanBoost(context) },
                             onOpenDiscoverFeed = { scope.launch { pagerState.animateScrollToPage(0) } },
-                            onOpenOptimizerPage = { scope.launch { pagerState.animateScrollToPage(2) } },
-                            onOpenAddTaskSheet = { showAddTaskSheet = true }
+                            onOpenOptimizerPage = { scope.launch { pagerState.animateScrollToPage(3) } },
+                            onOpenAddTaskSheet = { showAddTaskSheet = true },
+                            onOpenAppDrawer = { scope.launch { pagerState.animateScrollToPage(2) } }
                         )
                     }
 
                     Box(modifier = Modifier.weight(0.95f)) {
-                        if (pagerState.currentPage == 0) {
-                            DiscoverFeedPage(
+                        when (pagerState.currentPage) {
+                            0 -> DiscoverFeedPage(
                                 weather = weather,
                                 newsArticles = news,
                                 selectedCity = preferences.city,
                                 onSelectCity = viewModel::updateWeatherCity,
                                 onRefreshFeed = { viewModel.refreshWeatherAndNews(preferences.city) }
                             )
-                        } else {
-                            SystemOptimizerAndSettingsPage(
+                            2 -> AppDrawerScreen(
+                                onNavigateBack = { scope.launch { pagerState.animateScrollToPage(1) } }
+                            )
+                            else -> SystemOptimizerAndSettingsPage(
                                 telemetry = telemetry,
                                 preferences = preferences,
                                 quickSettings = quickSettings,
@@ -387,8 +391,12 @@ fun AuthenticatedGlassWorkspace(
                                 onCommitReorderedTasks = viewModel::commitReorderedTasks,
                                 onQuickRamClean = { viewModel.performRamCleanBoost(context) },
                                 onOpenDiscoverFeed = { scope.launch { pagerState.animateScrollToPage(0) } },
-                                onOpenOptimizerPage = { scope.launch { pagerState.animateScrollToPage(2) } },
-                                onOpenAddTaskSheet = { showAddTaskSheet = true }
+                                onOpenOptimizerPage = { scope.launch { pagerState.animateScrollToPage(3) } },
+                                onOpenAddTaskSheet = { showAddTaskSheet = true },
+                                onOpenAppDrawer = { scope.launch { pagerState.animateScrollToPage(2) } }
+                            )
+                            2 -> AppDrawerScreen(
+                                onNavigateBack = { scope.launch { pagerState.animateScrollToPage(1) } }
                             )
                             else -> SystemOptimizerAndSettingsPage(
                                 telemetry = telemetry,
@@ -472,7 +480,7 @@ private fun TopGlassStatusHeader(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            listOf("← Discover", "Home 3D", "Control →").forEachIndexed { idx, label ->
+            listOf("Discover", "Home", "Apps", "Control").forEachIndexed { idx, label ->
                 val active = currentPage == idx
                 Box(
                     modifier = Modifier
@@ -499,7 +507,7 @@ private fun TopGlassStatusHeader(
                     modifier = Modifier
                         .clip(CircleShape)
                         .background(tokens.accentSecondary.copy(alpha = 0.22f))
-                        .clickable { onSelectPage(2) }
+                        .clickable { onSelectPage(3) }
                         .padding(horizontal = 8.dp, vertical = 4.dp)
                 ) {
                     Text(
@@ -527,7 +535,7 @@ private fun TopGlassStatusHeader(
                 modifier = Modifier
                     .clip(CircleShape)
                     .background(tokens.cardFillTop)
-                    .clickable { onSelectPage(2) }
+                    .clickable { onSelectPage(3) }
                     .padding(horizontal = 10.dp, vertical = 4.dp)
             ) {
                 Text(
@@ -549,15 +557,15 @@ private fun FloatingLiquidGlassDock(
     GlassCard(
         modifier = Modifier
             .fillMaxWidth()
-            .widthIn(max = 420.dp)
+            .widthIn(max = 460.dp)
             .testTag("floating_glass_dock"),
-        cornerRadius = 30.dp,
+        cornerRadius = 32.dp,
         elevated = true
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 8.dp),
+                .padding(horizontal = 10.dp, vertical = 8.dp),
             horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -570,16 +578,23 @@ private fun FloatingLiquidGlassDock(
             )
             DockItem(
                 glyph = AeroIconGlyph.DASHBOARD,
-                label = "Home 3D",
+                label = "Home",
                 selected = currentPage == 1,
                 onClick = { onSelectPage(1) },
                 testTag = "dock_tab_home"
             )
             DockItem(
-                glyph = AeroIconGlyph.QUICK_SETTINGS,
-                label = "Control & RAM",
+                glyph = AeroIconGlyph.APPS_DRAWER,
+                label = "Apps",
                 selected = currentPage == 2,
                 onClick = { onSelectPage(2) },
+                testTag = "dock_tab_apps"
+            )
+            DockItem(
+                glyph = AeroIconGlyph.QUICK_SETTINGS,
+                label = "Control",
+                selected = currentPage == 3,
+                onClick = { onSelectPage(3) },
                 testTag = "dock_tab_control"
             )
         }
@@ -604,19 +619,19 @@ private fun DockItem(
                 else Color.Transparent
             )
             .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 10.dp)
+            .padding(horizontal = 12.dp, vertical = 8.dp)
             .testTag(testTag)
     ) {
         CustomGlassIcon(
             glyph = glyph,
-            size = 22.dp,
+            size = 20.dp,
             tint = if (selected) tokens.accentPrimary else tokens.textSecondary,
             secondaryTint = tokens.accentSecondary
         )
-        Spacer(modifier = Modifier.width(8.dp))
+        Spacer(modifier = Modifier.width(6.dp))
         Text(
             text = label,
-            style = MaterialTheme.typography.labelLarge,
+            style = MaterialTheme.typography.labelMedium,
             color = if (selected) tokens.textPrimary else tokens.textSecondary
         )
     }
@@ -665,10 +680,16 @@ private fun GlassSideNavigationRail(
                     onClick = { onSelectPage(0) }
                 )
                 RailItem(
-                    glyph = AeroIconGlyph.QUICK_SETTINGS,
-                    label = "Control",
+                    glyph = AeroIconGlyph.APPS_DRAWER,
+                    label = "Apps",
                     selected = currentPage == 2,
                     onClick = { onSelectPage(2) }
+                )
+                RailItem(
+                    glyph = AeroIconGlyph.QUICK_SETTINGS,
+                    label = "Control",
+                    selected = currentPage == 3,
+                    onClick = { onSelectPage(3) }
                 )
             }
 

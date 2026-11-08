@@ -41,7 +41,14 @@ enum class AeroIconGlyph(val contentDesc: String) {
     DND_FOCUS("Distraction-free focus mode"),
     FLASHLIGHT("Torch flashlight toggle"),
     AUTO_BRIGHTNESS("Adaptive brightness"),
-    PARALLAX_3D("3D parallax motion sensor")
+    PARALLAX_3D("3D parallax motion sensor"),
+    PHONE("Phone dialer"),
+    MESSAGES("Messages"),
+    CAMERA("Camera"),
+    APPS_DRAWER("All apps drawer"),
+    SEARCH("Search installed apps"),
+    SETTINGS("Launcher settings"),
+    HOME_LAUNCHER("Default home launcher")
 }
 
 @Composable
@@ -438,6 +445,136 @@ private fun DrawScope.drawGlyphVector(
                 size = Size(w * 0.50f, h * 0.50f),
                 cornerRadius = CornerRadius(w * 0.12f),
                 style = stroke
+            )
+        }
+
+        AeroIconGlyph.PHONE -> {
+            val phonePath = Path().apply {
+                moveTo(w * 0.28f, h * 0.32f)
+                cubicTo(w * 0.28f, h * 0.22f, w * 0.38f, h * 0.20f, w * 0.44f, h * 0.28f)
+                lineTo(w * 0.48f, h * 0.36f)
+                cubicTo(w * 0.50f, h * 0.40f, w * 0.46f, h * 0.46f, w * 0.42f, h * 0.50f)
+                cubicTo(w * 0.48f, h * 0.58f, w * 0.54f, h * 0.64f, w * 0.62f, h * 0.70f)
+                cubicTo(w * 0.66f, h * 0.66f, w * 0.72f, h * 0.62f, w * 0.76f, h * 0.64f)
+                lineTo(w * 0.84f, h * 0.68f)
+                cubicTo(w * 0.92f, h * 0.74f, w * 0.90f, h * 0.84f, w * 0.80f, h * 0.84f)
+                cubicTo(w * 0.46f, h * 0.84f, w * 0.28f, h * 0.66f, w * 0.28f, h * 0.32f)
+                close()
+            }
+            drawPath(path = phonePath, color = tint, style = stroke)
+        }
+
+        AeroIconGlyph.MESSAGES -> {
+            drawRoundRect(
+                color = tint,
+                topLeft = Offset(w * 0.18f, h * 0.22f),
+                size = Size(w * 0.64f, h * 0.46f),
+                cornerRadius = CornerRadius(w * 0.14f),
+                style = stroke
+            )
+            val tail = Path().apply {
+                moveTo(w * 0.28f, h * 0.68f)
+                lineTo(w * 0.22f, h * 0.80f)
+                lineTo(w * 0.42f, h * 0.68f)
+            }
+            drawPath(path = tail, color = tint, style = stroke)
+            drawCircle(color = secondaryTint, radius = w * 0.035f, center = Offset(w * 0.36f, h * 0.45f))
+            drawCircle(color = secondaryTint, radius = w * 0.035f, center = Offset(w * 0.50f, h * 0.45f))
+            drawCircle(color = secondaryTint, radius = w * 0.035f, center = Offset(w * 0.64f, h * 0.45f))
+        }
+
+        AeroIconGlyph.CAMERA -> {
+            drawRoundRect(
+                color = tint,
+                topLeft = Offset(w * 0.18f, h * 0.28f),
+                size = Size(w * 0.64f, h * 0.48f),
+                cornerRadius = CornerRadius(w * 0.12f),
+                style = stroke
+            )
+            drawCircle(
+                color = secondaryTint,
+                radius = w * 0.14f,
+                center = Offset(w * 0.50f, h * 0.52f),
+                style = stroke
+            )
+            drawCircle(
+                color = tint,
+                radius = w * 0.04f,
+                center = Offset(w * 0.68f, h * 0.38f)
+            )
+        }
+
+        AeroIconGlyph.APPS_DRAWER -> {
+            val step = w * 0.26f
+            val startX = w * 0.24f
+            val startY = h * 0.24f
+            val dotR = w * 0.055f
+            for (r in 0 until 3) {
+                for (c in 0 until 3) {
+                    val color = if ((r + c) % 2 == 0) tint else secondaryTint
+                    drawCircle(
+                        color = color,
+                        radius = dotR,
+                        center = Offset(startX + c * step, startY + r * step)
+                    )
+                }
+            }
+        }
+
+        AeroIconGlyph.SEARCH -> {
+            drawCircle(
+                color = tint,
+                radius = w * 0.20f,
+                center = Offset(w * 0.42f, h * 0.42f),
+                style = stroke
+            )
+            drawLine(
+                color = secondaryTint,
+                start = Offset(w * 0.56f, h * 0.56f),
+                end = Offset(w * 0.78f, h * 0.78f),
+                strokeWidth = strokeWidth * 1.3f,
+                cap = StrokeCap.Round
+            )
+        }
+
+        AeroIconGlyph.SETTINGS -> {
+            drawCircle(
+                color = tint,
+                radius = w * 0.15f,
+                center = Offset(w * 0.50f, h * 0.50f),
+                style = stroke
+            )
+            for (i in 0 until 6) {
+                val angle = Math.toRadians((i * 60).toDouble())
+                val r1 = w * 0.22f
+                val r2 = w * 0.34f
+                drawLine(
+                    color = secondaryTint,
+                    start = Offset((w / 2f + cos(angle) * r1).toFloat(), (h / 2f + sin(angle) * r1).toFloat()),
+                    end = Offset((w / 2f + cos(angle) * r2).toFloat(), (h / 2f + sin(angle) * r2).toFloat()),
+                    strokeWidth = strokeWidth * 1.2f,
+                    cap = StrokeCap.Round
+                )
+            }
+        }
+
+        AeroIconGlyph.HOME_LAUNCHER -> {
+            val housePath = Path().apply {
+                moveTo(w * 0.50f, h * 0.18f)
+                lineTo(w * 0.82f, h * 0.46f)
+                lineTo(w * 0.74f, h * 0.46f)
+                lineTo(w * 0.74f, h * 0.80f)
+                lineTo(w * 0.26f, h * 0.80f)
+                lineTo(w * 0.26f, h * 0.46f)
+                lineTo(w * 0.18f, h * 0.46f)
+                close()
+            }
+            drawPath(path = housePath, color = tint, style = stroke)
+            drawRoundRect(
+                color = secondaryTint,
+                topLeft = Offset(w * 0.42f, h * 0.56f),
+                size = Size(w * 0.16f, h * 0.24f),
+                cornerRadius = CornerRadius(w * 0.04f)
             )
         }
     }

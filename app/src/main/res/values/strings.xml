@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">AeroGlass</string>
+    <string name="default_web_client_id" translatable="false">1088481488556-ci.apps.googleusercontent.com</string>
 </resources>

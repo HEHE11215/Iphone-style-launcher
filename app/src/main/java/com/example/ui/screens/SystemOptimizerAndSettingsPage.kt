@@ -31,6 +31,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -563,7 +564,96 @@ fun SystemOptimizerAndSettingsPage(
             }
         }
 
-        // 5. Account Sign Out Card
+        // 5. Android Home Launcher Integration & Defaults
+        item {
+            val context = androidx.compose.ui.platform.LocalContext.current
+            val isDefault = remember(context) { isAeroGlassDefaultLauncher(context) }
+            GlassCard(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("launcher_home_settings_card"),
+                cornerRadius = 24.dp,
+                elevated = true
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(20.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            CustomGlassIcon(
+                                glyph = AeroIconGlyph.HOME_LAUNCHER,
+                                size = 26.dp,
+                                tint = tokens.accentPrimary,
+                                secondaryTint = tokens.accentSecondary
+                            )
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column {
+                                Text(
+                                    text = "Android Home Launcher",
+                                    style = MaterialTheme.typography.titleLarge,
+                                    color = tokens.textPrimary
+                                )
+                                Text(
+                                    text = if (isDefault) "AeroGlass is active as default launcher" else "Not set as default launcher",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = if (isDefault) EmeraldPulse else tokens.textSecondary
+                                )
+                            }
+                        }
+
+                        Box(
+                            modifier = Modifier
+                                .clip(CircleShape)
+                                .background(if (isDefault) EmeraldPulse.copy(alpha = 0.18f) else tokens.accentSecondary.copy(alpha = 0.18f))
+                                .padding(horizontal = 10.dp, vertical = 4.dp)
+                        ) {
+                            Text(
+                                text = if (isDefault) "DEFAULT" else "OPTIONAL",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = if (isDefault) EmeraldPulse else tokens.accentSecondary
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    Text(
+                        text = "Set AeroGlass as your system home screen to enable 3D Parallax StandBy clock, swipe gestures, liquid glass dock, and zero-latency app drawer when pressing the home button.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = tokens.textSecondary
+                    )
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    Button(
+                        onClick = { openDefaultHomeSettings(context) },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = tokens.accentPrimary,
+                            contentColor = Color(0xFF041326)
+                        ),
+                        shape = RoundedCornerShape(16.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("open_home_settings_button")
+                    ) {
+                        Text(
+                            text = if (isDefault) "Manage Default Apps" else "Set as Default Home Launcher",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+        }
+
+        // 6. Account Sign Out Card
         item {
             GlassCard(
                 modifier = Modifier

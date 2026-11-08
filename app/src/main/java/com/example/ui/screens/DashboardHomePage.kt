@@ -43,12 +43,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
@@ -90,6 +92,7 @@ fun DashboardHomePage(
     onOpenDiscoverFeed: () -> Unit,
     onOpenOptimizerPage: () -> Unit,
     onOpenAddTaskSheet: () -> Unit,
+    onOpenAppDrawer: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val tokens = LocalGlassTokens.current
@@ -115,6 +118,14 @@ fun DashboardHomePage(
         rawTasks.count { it.reminderEnabled && !it.completed }
     }
 
+    var installedAppsPreview by remember { mutableStateOf<List<InstalledAppItem>>(emptyList()) }
+    var isDefaultHome by remember { mutableStateOf(isAeroGlassDefaultLauncher(context)) }
+
+    LaunchedEffect(Unit) {
+        installedAppsPreview = fetchInstalledApps(context).take(8)
+        isDefaultHome = isAeroGlassDefaultLauncher(context)
+    }
+
     LazyColumn(
         modifier = modifier
             .fillMaxSize()
@@ -122,6 +133,65 @@ fun DashboardHomePage(
         contentPadding = PaddingValues(horizontal = 20.dp, vertical = 14.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
+        // Default Home Launcher Banner
+        if (!isDefaultHome) {
+            item {
+                GlassCard(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { openDefaultHomeSettings(context) }
+                        .testTag("home_default_launcher_chip"),
+                    cornerRadius = 20.dp
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            CustomGlassIcon(
+                                glyph = AeroIconGlyph.HOME_LAUNCHER,
+                                size = 22.dp,
+                                tint = tokens.accentPrimary
+                            )
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column {
+                                Text(
+                                    text = "AeroGlass Home Launcher",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = tokens.textPrimary
+                                )
+                                Text(
+                                    text = "Tap to set as your default Android home",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = tokens.textSecondary
+                                )
+                            }
+                        }
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(tokens.accentPrimary)
+                                .padding(horizontal = 10.dp, vertical = 6.dp)
+                        ) {
+                            Text(
+                                text = "SET HOME",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF041326)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
         // 1. Main Home 3D Spatial Parallax Clock
         item {
             Spatial3DParallaxClockCard(
@@ -130,6 +200,98 @@ fun DashboardHomePage(
                 activeRemindersCount = activeRemindersCount,
                 modifier = Modifier.testTag("spatial_3d_clock_card")
             )
+        }
+
+        // 2. Launcher Quick Apps Bar (Phone, Messages, Camera, All Apps, Settings)
+        item {
+            GlassCard(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("home_quick_apps_card"),
+                cornerRadius = 24.dp
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp, vertical = 14.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "QUICK APPS",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = tokens.accentPrimary
+                        )
+                        Text(
+                            text = "All Apps (${installedAppsPreview.count()}+) →",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = tokens.accentSecondary,
+                            modifier = Modifier.clickable(onClick = onOpenAppDrawer)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceAround,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        HomeAppLauncherShortcut(
+                            glyph = AeroIconGlyph.PHONE,
+                            label = "Phone",
+                            tint = EmeraldPulse,
+                            onClick = { launchPhone(context) }
+                        )
+                        HomeAppLauncherShortcut(
+                            glyph = AeroIconGlyph.MESSAGES,
+                            label = "Messages",
+                            tint = tokens.accentPrimary,
+                            onClick = { launchMessages(context) }
+                        )
+                        HomeAppLauncherShortcut(
+                            glyph = AeroIconGlyph.CAMERA,
+                            label = "Camera",
+                            tint = AmberGlow,
+                            onClick = { launchCamera(context) }
+                        )
+                        HomeAppLauncherShortcut(
+                            glyph = AeroIconGlyph.APPS_DRAWER,
+                            label = "All Apps",
+                            tint = tokens.accentSecondary,
+                            onClick = onOpenAppDrawer
+                        )
+                        HomeAppLauncherShortcut(
+                            glyph = AeroIconGlyph.SETTINGS,
+                            label = "Settings",
+                            tint = tokens.textPrimary,
+                            onClick = { openDefaultHomeSettings(context) }
+                        )
+                    }
+
+                    if (installedAppsPreview.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(14.dp))
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(14.dp)
+                        ) {
+                            for (app in installedAppsPreview) {
+                                HomeInstalledAppMiniBadge(
+                                    app = app,
+                                    onClick = { launchApp(context, app.packageName) }
+                                )
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         // 2. Dual Glass Widgets Row: Home Weather Widget + 1-Tap 90fps RAM & Battery Widget
@@ -802,5 +964,93 @@ private fun triggerSubtleHaptic(context: android.content.Context) {
             vibrator.vibrate(18L)
         }
     } catch (ignored: Exception) {
+    }
+}
+
+@Composable
+private fun HomeAppLauncherShortcut(
+    glyph: AeroIconGlyph,
+    label: String,
+    tint: Color,
+    onClick: () -> Unit
+) {
+    val tokens = LocalGlassTokens.current
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .clip(RoundedCornerShape(16.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 6.dp, vertical = 4.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(48.dp)
+                .clip(RoundedCornerShape(14.dp))
+                .background(tint.copy(alpha = 0.18f)),
+            contentAlignment = Alignment.Center
+        ) {
+            CustomGlassIcon(
+                glyph = glyph,
+                size = 24.dp,
+                tint = tint,
+                secondaryTint = tokens.accentSecondary
+            )
+        }
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = tokens.textPrimary
+        )
+    }
+}
+
+@Composable
+private fun HomeInstalledAppMiniBadge(
+    app: InstalledAppItem,
+    onClick: () -> Unit
+) {
+    val tokens = LocalGlassTokens.current
+    val appBitmap = remember(app.packageName) { app.icon?.toBitmapOrNull(100, 100) }
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .width(56.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .clickable(onClick = onClick)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(44.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(Color.White.copy(alpha = if (tokens.isDark) 0.10f else 0.30f))
+                .padding(4.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            if (appBitmap != null) {
+                androidx.compose.foundation.Image(
+                    bitmap = appBitmap.asImageBitmap(),
+                    contentDescription = app.label,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clip(RoundedCornerShape(8.dp))
+                )
+            } else {
+                Text(
+                    text = app.label.take(1).uppercase(),
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = tokens.textPrimary
+                )
+            }
+        }
+        Spacer(modifier = Modifier.height(2.dp))
+        Text(
+            text = app.label,
+            style = MaterialTheme.typography.labelSmall,
+            color = tokens.textSecondary,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
     }
 }

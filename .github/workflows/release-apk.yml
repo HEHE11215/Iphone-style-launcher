@@ -104,6 +104,48 @@ jobs:
             fi
           fi
 
+      - name: Ensure app/google-services.json Exists
+        run: |
+          if [ ! -f app/google-services.json ]; then
+            echo "app/google-services.json not found in repository. Synthesizing configuration for CI build..."
+            cat << 'EOF' > app/google-services.json
+          {
+            "project_info": {
+              "project_number": "1088481488556",
+              "project_id": "gen-lang-client-0895456119",
+              "storage_bucket": "gen-lang-client-0895456119.appspot.com"
+            },
+            "client": [
+              {
+                "client_info": {
+                  "mobilesdk_app_id": "1:1088481488556:android:aeroglassci",
+                  "android_client_info": {
+                    "package_name": "com.aistudio.aeroglass.vxpqmn"
+                  }
+                },
+                "oauth_client": [
+                  {
+                    "client_id": "1088481488556-ci.apps.googleusercontent.com",
+                    "client_type": 3
+                  }
+                ],
+                "api_key": [
+                  {
+                    "current_key": "AIzaSyCiBuildKeyForGoogleServicesMock"
+                  }
+                ],
+                "services": {
+                  "appinvite_service": {
+                    "other_platform_oauth_client": []
+                  }
+                }
+              }
+            ],
+            "configuration_version": "1"
+          }
+          EOF
+          fi
+
       - name: Build Signed Release APK Only
         env:
           KEYSTORE_PATH: ${{ github.workspace }}/my-upload-key.jks
