@@ -2,25 +2,38 @@ package com.example.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// Obsidian Dark Glass Palette (iOS 18 / visionOS inspired)
-val ObsidianBgStart = Color(0xFF070B19)
-val ObsidianBgEnd = Color(0xFF121A36)
-val CyanSpecular = Color(0xFF38BDF8)
-val VioletAurora = Color(0xFFA855F7)
-val EmeraldPulse = Color(0xFF34D399)
-val AmberGlow = Color(0xFFFBBF24)
-val RoseAlert = Color(0xFFFB7185)
+// Authentic iPhone Glass / iOS 18 Design Palette (Clean, minimalist, luxury acrylic)
+val IPhoneDarkGlassBgStart = Color(0xFF090A0E)
+val IPhoneDarkGlassBgEnd = Color(0xFF13141C)
+val IPhoneSystemBlue = Color(0xFF0A84FF)
+val IPhoneSystemMint = Color(0xFF30D158)
+val IPhoneSystemPurple = Color(0xFFBF5AF2)
+val IPhoneSystemOrange = Color(0xFFFF9F0A)
+val IPhoneSystemRed = Color(0xFFFF453A)
 
-// Daylight Quartz Frost Palette
-val QuartzBgStart = Color(0xFFEAF2FF)
-val QuartzBgEnd = Color(0xFFDCE7FA)
-val QuartzPrimary = Color(0xFF0284C7)
-val QuartzSecondary = Color(0xFF6366F1)
-val QuartzTextPrimary = Color(0xFF0F172A)
-val QuartzTextSecondary = Color(0xFF475569)
+// Frosted Pearl Light Glass Palette (iOS Light)
+val IPhoneLightGlassBgStart = Color(0xFFF2F4F7)
+val IPhoneLightGlassBgEnd = Color(0xFFE5E7EB)
+val IPhoneLightTextPrimary = Color(0xFF18181B)
+val IPhoneLightTextSecondary = Color(0xFF71717A)
 
-// Aurora Dynamic Palette
-val AuroraBgStart = Color(0xFF0D0924)
-val AuroraBgEnd = Color(0xFF082838)
-val AuroraPrimary = Color(0xFF2DD4BF)
-val AuroraSecondary = Color(0xFFC084FC)
+// Backward-compatible alias tokens for existing components
+val ObsidianBgStart = IPhoneDarkGlassBgStart
+val ObsidianBgEnd = IPhoneDarkGlassBgEnd
+val CyanSpecular = IPhoneSystemBlue
+val VioletAurora = IPhoneSystemPurple
+val EmeraldPulse = IPhoneSystemMint
+val AmberGlow = IPhoneSystemOrange
+val RoseAlert = IPhoneSystemRed
+
+val QuartzBgStart = IPhoneLightGlassBgStart
+val QuartzBgEnd = IPhoneLightGlassBgEnd
+val QuartzPrimary = Color(0xFF007AFF)
+val QuartzSecondary = Color(0xFF5856D6)
+val QuartzTextPrimary = IPhoneLightTextPrimary
+val QuartzTextSecondary = IPhoneLightTextSecondary
+
+val AuroraBgStart = Color(0xFF0D0B18)
+val AuroraBgEnd = Color(0xFF10162A)
+val AuroraPrimary = Color(0xFF38BDF8)
+val AuroraSecondary = Color(0xFFA78BFA)

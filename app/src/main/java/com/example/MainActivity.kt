@@ -10,8 +10,13 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -39,9 +44,11 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -61,7 +68,9 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import androidx.credentials.CredentialManager
 import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.APPLICATION_KEY
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -79,10 +88,11 @@ import com.example.ui.screens.AppDrawerScreen
 import com.example.ui.screens.AuthScreen
 import com.example.ui.screens.DashboardHomePage
 import com.example.ui.screens.DiscoverFeedPage
-import com.example.ui.screens.SystemOptimizerAndSettingsPage
-import com.example.ui.screens.launchPhone
-import com.example.ui.screens.launchMessages
+import com.example.ui.screens.LauncherSettingsModalSheet
+import com.example.ui.screens.LauncherShortcutsAndWidgetsPage
 import com.example.ui.screens.launchCamera
+import com.example.ui.screens.launchMessages
+import com.example.ui.screens.launchPhone
 import com.example.ui.screens.signOut
 import com.example.ui.theme.AeroGlassTheme
 import com.example.ui.theme.LocalGlassTokens
@@ -212,12 +222,18 @@ fun AuthenticatedGlassWorkspace(
             .getOrDefault(CustomIconPack.LIQUID_PRISM)
     }
 
+    var isAppDrawerOpen by rememberSaveable { mutableStateOf(false) }
+    var isSettingsSheetOpen by rememberSaveable { mutableStateOf(false) }
     var showAddTaskSheet by remember { mutableStateOf(false) }
 
-    // Page 0 = Discover & Weather, Page 1 = Home 3D Clock & Tasks, Page 2 = Apps Drawer, Page 3 = Control & RAM
-    val pagerState = rememberPagerState(initialPage = 1, pageCount = { 4 })
+    // Page 0 = Discover & Weather, Page 1 = Pristine Home (3D Clock), Page 2 = Widgets & Tasks
+    val pagerState = rememberPagerState(initialPage = 1, pageCount = { 3 })
 
-    BackHandler(enabled = pagerState.currentPage != 1) {
+    // Back handling: If drawer open, close drawer; else if not on home, go home
+    BackHandler(enabled = isAppDrawerOpen) {
+        isAppDrawerOpen = false
+    }
+    BackHandler(enabled = !isAppDrawerOpen && pagerState.currentPage != 1) {
         scope.launch {
             pagerState.animateScrollToPage(1)
         }
@@ -261,35 +277,25 @@ fun AuthenticatedGlassWorkspace(
                 ) {
                     GlassSideNavigationRail(
                         currentPage = pagerState.currentPage,
+                        isDrawerOpen = isAppDrawerOpen,
                         onSelectPage = { page ->
+                            isAppDrawerOpen = false
                             scope.launch { pagerState.animateScrollToPage(page) }
                         },
+                        onToggleAppDrawer = { isAppDrawerOpen = !isAppDrawerOpen },
+                        onOpenSettings = { isSettingsSheetOpen = true },
                         onOpenNewTask = { showAddTaskSheet = true }
                     )
 
                     Box(modifier = Modifier.weight(1.15f)) {
                         DashboardHomePage(
-                            tasksUiState = tasksState,
-                            selectedCategory = selectedCategory,
                             weather = weather,
                             telemetry = telemetry,
                             parallaxEnabled = preferences.parallaxEnabled,
-                            lastRamBoostSummary = quickSettings.lastRamBoostSummary,
-                            onSelectCategory = viewModel::setCategoryFilter,
-                            onToggleTaskComplete = viewModel::toggleTaskCompleted,
-                            onToggleTaskReminder = { task ->
-                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                                    notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                                }
-                                viewModel.toggleTaskReminder(context, task)
-                            },
-                            onDeleteTask = viewModel::deleteTask,
-                            onCommitReorderedTasks = viewModel::commitReorderedTasks,
-                            onQuickRamClean = { viewModel.performRamCleanBoost(context) },
+                            onOpenAppDrawer = { isAppDrawerOpen = true },
                             onOpenDiscoverFeed = { scope.launch { pagerState.animateScrollToPage(0) } },
-                            onOpenOptimizerPage = { scope.launch { pagerState.animateScrollToPage(3) } },
-                            onOpenAddTaskSheet = { showAddTaskSheet = true },
-                            onOpenAppDrawer = { scope.launch { pagerState.animateScrollToPage(2) } }
+                            onOpenWidgetsPage = { scope.launch { pagerState.animateScrollToPage(2) } },
+                            onOpenSettingsSheet = { isSettingsSheetOpen = true }
                         )
                     }
 
@@ -302,28 +308,24 @@ fun AuthenticatedGlassWorkspace(
                                 onSelectCity = viewModel::updateWeatherCity,
                                 onRefreshFeed = { viewModel.refreshWeatherAndNews(preferences.city) }
                             )
-                            2 -> AppDrawerScreen(
-                                onNavigateBack = { scope.launch { pagerState.animateScrollToPage(1) } }
-                            )
-                            else -> SystemOptimizerAndSettingsPage(
+                            else -> LauncherShortcutsAndWidgetsPage(
+                                tasksUiState = tasksState,
+                                selectedCategory = selectedCategory,
                                 telemetry = telemetry,
-                                preferences = preferences,
-                                quickSettings = quickSettings,
-                                onRunRamCleanBoost = { viewModel.performRamCleanBoost(context) },
-                                onCyclePowerProfile = { viewModel.cyclePowerProfile(context) },
-                                onToggleQuickSetting = viewModel::toggleQuickSetting,
-                                onBlurIntensityChanged = viewModel::updateBlurIntensity,
-                                onSelectThemeMode = viewModel::updateThemeMode,
-                                onSelectIconPack = viewModel::updateIconPack,
-                                onToggleParallax = viewModel::toggleParallax,
-                                isGuestSession = isGuestSession,
-                                onSignOut = {
-                                    if (isGuestSession) {
-                                        onExitGuestMode()
-                                    } else {
-                                        signOut(credentialManager, scope)
+                                lastRamBoostSummary = quickSettings.lastRamBoostSummary,
+                                onSelectCategory = viewModel::setCategoryFilter,
+                                onToggleTaskComplete = viewModel::toggleTaskCompleted,
+                                onToggleTaskReminder = { task ->
+                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                        notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
                                     }
-                                }
+                                    viewModel.toggleTaskReminder(context, task)
+                                },
+                                onDeleteTask = viewModel::deleteTask,
+                                onCommitReorderedTasks = viewModel::commitReorderedTasks,
+                                onQuickRamClean = { viewModel.performRamCleanBoost(context) },
+                                onOpenAddTaskSheet = { showAddTaskSheet = true },
+                                onOpenSettingsSheet = { isSettingsSheetOpen = true }
                             )
                         }
                     }
@@ -341,7 +343,8 @@ fun AuthenticatedGlassWorkspace(
                         isGuestSession = isGuestSession,
                         onSelectPage = { page ->
                             scope.launch { pagerState.animateScrollToPage(page) }
-                        }
+                        },
+                        onOpenSettings = { isSettingsSheetOpen = true }
                     )
 
                     AnimatedVisibility(
@@ -379,11 +382,18 @@ fun AuthenticatedGlassWorkspace(
                                 onRefreshFeed = { viewModel.refreshWeatherAndNews(preferences.city) }
                             )
                             1 -> DashboardHomePage(
-                                tasksUiState = tasksState,
-                                selectedCategory = selectedCategory,
                                 weather = weather,
                                 telemetry = telemetry,
                                 parallaxEnabled = preferences.parallaxEnabled,
+                                onOpenAppDrawer = { isAppDrawerOpen = true },
+                                onOpenDiscoverFeed = { scope.launch { pagerState.animateScrollToPage(0) } },
+                                onOpenWidgetsPage = { scope.launch { pagerState.animateScrollToPage(2) } },
+                                onOpenSettingsSheet = { isSettingsSheetOpen = true }
+                            )
+                            else -> LauncherShortcutsAndWidgetsPage(
+                                tasksUiState = tasksState,
+                                selectedCategory = selectedCategory,
+                                telemetry = telemetry,
                                 lastRamBoostSummary = quickSettings.lastRamBoostSummary,
                                 onSelectCategory = viewModel::setCategoryFilter,
                                 onToggleTaskComplete = viewModel::toggleTaskCompleted,
@@ -396,53 +406,128 @@ fun AuthenticatedGlassWorkspace(
                                 onDeleteTask = viewModel::deleteTask,
                                 onCommitReorderedTasks = viewModel::commitReorderedTasks,
                                 onQuickRamClean = { viewModel.performRamCleanBoost(context) },
-                                onOpenDiscoverFeed = { scope.launch { pagerState.animateScrollToPage(0) } },
-                                onOpenOptimizerPage = { scope.launch { pagerState.animateScrollToPage(3) } },
                                 onOpenAddTaskSheet = { showAddTaskSheet = true },
-                                onOpenAppDrawer = { scope.launch { pagerState.animateScrollToPage(2) } }
-                            )
-                            2 -> AppDrawerScreen(
-                                onNavigateBack = { scope.launch { pagerState.animateScrollToPage(1) } }
-                            )
-                            else -> SystemOptimizerAndSettingsPage(
-                                telemetry = telemetry,
-                                preferences = preferences,
-                                quickSettings = quickSettings,
-                                onRunRamCleanBoost = { viewModel.performRamCleanBoost(context) },
-                                onCyclePowerProfile = { viewModel.cyclePowerProfile(context) },
-                                onToggleQuickSetting = viewModel::toggleQuickSetting,
-                                onBlurIntensityChanged = viewModel::updateBlurIntensity,
-                                onSelectThemeMode = viewModel::updateThemeMode,
-                                onSelectIconPack = viewModel::updateIconPack,
-                                onToggleParallax = viewModel::toggleParallax,
-                                isGuestSession = isGuestSession,
-                                onSignOut = {
-                                    if (isGuestSession) {
-                                        onExitGuestMode()
-                                    } else {
-                                        signOut(credentialManager, scope)
-                                    }
-                                }
+                                onOpenSettingsSheet = { isSettingsSheetOpen = true }
                             )
                         }
                     }
                 }
 
+                // Fixed 5-Icon Glass Shelf pinned at bottom
                 Box(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .windowInsetsPadding(WindowInsets.navigationBars)
-                        .padding(horizontal = 24.dp, vertical = 12.dp)
+                        .padding(horizontal = 20.dp, vertical = 10.dp)
                 ) {
                     FloatingLiquidGlassDock(
                         currentPage = pagerState.currentPage,
+                        isDrawerOpen = isAppDrawerOpen,
                         onSelectPage = { page ->
+                            isAppDrawerOpen = false
                             scope.launch { pagerState.animateScrollToPage(page) }
-                        }
+                        },
+                        onToggleAppDrawer = { isAppDrawerOpen = !isAppDrawerOpen },
+                        onOpenSettings = { isSettingsSheetOpen = true }
                     )
                 }
             }
 
+            // Slide-Up App Drawer Overlay with Real Frosted Glass Blur Backdrop
+            AnimatedVisibility(
+                visible = isAppDrawerOpen,
+                enter = slideInVertically(
+                    initialOffsetY = { it },
+                    animationSpec = spring(
+                        dampingRatio = Spring.DampingRatioLowBouncy,
+                        stiffness = Spring.StiffnessMediumLow
+                    )
+                ) + fadeIn(),
+                exit = slideOutVertically(
+                    targetOffsetY = { it },
+                    animationSpec = tween(durationMillis = 240)
+                ) + fadeOut(),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .zIndex(50f)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = if (tokens.isDark) 0.68f else 0.42f))
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .windowInsetsPadding(WindowInsets.statusBars)
+                            .windowInsetsPadding(WindowInsets.navigationBars)
+                    ) {
+                        // Drag-down handle bar to close drawer
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 10.dp, bottom = 4.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .clip(CircleShape)
+                                    .background(Color.White.copy(alpha = 0.28f))
+                                    .clickable { isAppDrawerOpen = false }
+                                    .padding(horizontal = 18.dp, vertical = 6.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.KeyboardArrowDown,
+                                        contentDescription = "Close App Drawer",
+                                        tint = Color.White,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Text(
+                                        text = "Close Apps",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = Color.White
+                                    )
+                                }
+                            }
+                        }
+
+                        AppDrawerScreen(
+                            onNavigateBack = { isAppDrawerOpen = false }
+                        )
+                    }
+                }
+            }
+
+            // Launcher Settings Modal Bottom Sheet
+            if (isSettingsSheetOpen) {
+                LauncherSettingsModalSheet(
+                    preferences = preferences,
+                    telemetry = telemetry,
+                    isGuestSession = isGuestSession,
+                    onDismiss = { isSettingsSheetOpen = false },
+                    onRunRamCleanBoost = { viewModel.performRamCleanBoost(context) },
+                    onCyclePowerProfile = { viewModel.cyclePowerProfile(context) },
+                    onBlurIntensityChanged = { viewModel.updateBlurIntensity(it.toInt()) },
+                    onSelectThemeMode = viewModel::updateThemeMode,
+                    onSelectIconPack = viewModel::updateIconPack,
+                    onToggleParallax = viewModel::toggleParallax,
+                    onSignOut = {
+                        isSettingsSheetOpen = false
+                        if (isGuestSession) {
+                            onExitGuestMode()
+                        } else {
+                            signOut(credentialManager, scope)
+                        }
+                    }
+                )
+            }
+
+            // Add Task Sheet
             if (showAddTaskSheet) {
                 AddTaskModalSheet(
                     onDismiss = { showAddTaskSheet = false },
@@ -459,6 +544,7 @@ fun AuthenticatedGlassWorkspace(
                             reminderLabel = reminderLabel,
                             reminderEnabled = reminderEnabled
                         )
+                        showAddTaskSheet = false
                     }
                 )
             }
@@ -472,7 +558,8 @@ private fun TopGlassStatusHeader(
     blurPercent: Int,
     focusDndActive: Boolean,
     isGuestSession: Boolean,
-    onSelectPage: (Int) -> Unit
+    onSelectPage: (Int) -> Unit,
+    onOpenSettings: () -> Unit
 ) {
     val tokens = LocalGlassTokens.current
     BoxWithConstraints(
@@ -491,15 +578,14 @@ private fun TopGlassStatusHeader(
             Box(
                 modifier = Modifier
                     .clip(CircleShape)
-                    .background(tokens.accentPrimary.copy(alpha = 0.20f))
+                    .background(tokens.accentPrimary.copy(alpha = 0.18f))
                     .clickable { onSelectPage(1) }
                     .padding(horizontal = 12.dp, vertical = 5.dp)
             ) {
                 Text(
                     text = when (currentPage) {
                         0 -> "Google Discover"
-                        2 -> "All Applications"
-                        3 -> "Control Center"
+                        2 -> "Widgets & Tasks"
                         else -> "AeroGlass Home"
                     },
                     style = MaterialTheme.typography.labelMedium,
@@ -508,7 +594,7 @@ private fun TopGlassStatusHeader(
                 )
             }
 
-            // Right: Quick Status Chips (Guest, DND, Glass Level)
+            // Right: Quick Status Chips (Guest, DND, Settings trigger)
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
@@ -518,7 +604,7 @@ private fun TopGlassStatusHeader(
                         modifier = Modifier
                             .clip(CircleShape)
                             .background(tokens.accentSecondary.copy(alpha = 0.22f))
-                            .clickable { onSelectPage(3) }
+                            .clickable(onClick = onOpenSettings)
                             .padding(horizontal = 8.dp, vertical = 4.dp)
                     ) {
                         Text(
@@ -547,7 +633,7 @@ private fun TopGlassStatusHeader(
                     modifier = Modifier
                         .clip(CircleShape)
                         .background(tokens.cardFillTop)
-                        .clickable { onSelectPage(3) }
+                        .clickable(onClick = onOpenSettings)
                         .padding(horizontal = 10.dp, vertical = 4.dp)
                 ) {
                     Text(
@@ -564,7 +650,10 @@ private fun TopGlassStatusHeader(
 @Composable
 private fun FloatingLiquidGlassDock(
     currentPage: Int,
-    onSelectPage: (Int) -> Unit
+    isDrawerOpen: Boolean,
+    onSelectPage: (Int) -> Unit,
+    onToggleAppDrawer: () -> Unit,
+    onOpenSettings: () -> Unit
 ) {
     val tokens = LocalGlassTokens.current
     val context = LocalContext.current
@@ -573,16 +662,16 @@ private fun FloatingLiquidGlassDock(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
             .fillMaxWidth()
-            .widthIn(max = 480.dp)
+            .widthIn(max = 460.dp)
             .testTag("floating_glass_dock")
     ) {
-        // Stock Android Page Indicator Dots: Discover (0), Home (1), Apps (2), Control (3)
+        // Subtle 3-Page Indicator Dots: Discover (0), Home (1), Widgets (2)
         Row(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.padding(bottom = 6.dp)
         ) {
-            repeat(4) { idx ->
+            repeat(3) { idx ->
                 val active = currentPage == idx
                 Box(
                     modifier = Modifier
@@ -597,7 +686,7 @@ private fun FloatingLiquidGlassDock(
             }
         }
 
-        // Authentic Stock Android 5-Icon Glass Shelf
+        // Fixed Stock Android & iPhone 5-Icon Glass Shelf
         GlassCard(
             modifier = Modifier.fillMaxWidth(),
             cornerRadius = 32.dp,
@@ -606,7 +695,7 @@ private fun FloatingLiquidGlassDock(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 10.dp, vertical = 8.dp),
+                    .padding(horizontal = 8.dp, vertical = 8.dp),
                 horizontalArrangement = Arrangement.SpaceAround,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -630,11 +719,10 @@ private fun FloatingLiquidGlassDock(
                     testTag = "dock_app_messages"
                 )
 
-                // 3. Central Launcher Button (App Drawer / Home)
-                val inDrawer = currentPage == 2
+                // 3. Central Launcher Button (Slide-up App Drawer Trigger)
                 StockDockAppIcon(
-                    glyph = if (inDrawer) AeroIconGlyph.DASHBOARD else AeroIconGlyph.APPS_DRAWER,
-                    label = if (inDrawer) "Home" else "Apps",
+                    glyph = if (isDrawerOpen) AeroIconGlyph.DASHBOARD else AeroIconGlyph.APPS_DRAWER,
+                    label = if (isDrawerOpen) "Close" else "Apps",
                     containerBrush = Brush.linearGradient(
                         listOf(
                             tokens.accentPrimary.copy(alpha = 0.35f),
@@ -643,9 +731,7 @@ private fun FloatingLiquidGlassDock(
                     ),
                     glyphTint = tokens.accentPrimary,
                     isCenterKey = true,
-                    onClick = {
-                        if (inDrawer) onSelectPage(1) else onSelectPage(2)
-                    },
+                    onClick = onToggleAppDrawer,
                     testTag = "dock_app_drawer"
                 )
 
@@ -662,11 +748,10 @@ private fun FloatingLiquidGlassDock(
                 // 5. Settings / Control Center
                 StockDockAppIcon(
                     glyph = AeroIconGlyph.QUICK_SETTINGS,
-                    label = "Control",
+                    label = "Settings",
                     containerBrush = Brush.linearGradient(listOf(Color(0xFF8B5CF6), Color(0xFF6D28D9))),
                     glyphTint = Color.White,
-                    selected = currentPage == 3,
-                    onClick = { onSelectPage(3) },
+                    onClick = onOpenSettings,
                     testTag = "dock_app_settings"
                 )
             }
@@ -727,7 +812,10 @@ private fun StockDockAppIcon(
 @Composable
 private fun GlassSideNavigationRail(
     currentPage: Int,
+    isDrawerOpen: Boolean,
     onSelectPage: (Int) -> Unit,
+    onToggleAppDrawer: () -> Unit,
+    onOpenSettings: () -> Unit,
     onOpenNewTask: () -> Unit
 ) {
     val tokens = LocalGlassTokens.current
@@ -757,26 +845,26 @@ private fun GlassSideNavigationRail(
                 RailItem(
                     glyph = AeroIconGlyph.DASHBOARD,
                     label = "Home",
-                    selected = currentPage == 1,
+                    selected = currentPage == 1 && !isDrawerOpen,
                     onClick = { onSelectPage(1) }
                 )
                 RailItem(
                     glyph = AeroIconGlyph.DISCOVER_NEWS,
                     label = "Discover",
-                    selected = currentPage == 0,
+                    selected = currentPage == 0 && !isDrawerOpen,
                     onClick = { onSelectPage(0) }
                 )
                 RailItem(
                     glyph = AeroIconGlyph.APPS_DRAWER,
                     label = "Apps",
-                    selected = currentPage == 2,
-                    onClick = { onSelectPage(2) }
+                    selected = isDrawerOpen,
+                    onClick = onToggleAppDrawer
                 )
                 RailItem(
                     glyph = AeroIconGlyph.QUICK_SETTINGS,
-                    label = "Control",
-                    selected = currentPage == 3,
-                    onClick = { onSelectPage(3) }
+                    label = "Settings",
+                    selected = false,
+                    onClick = onOpenSettings
                 )
             }
 

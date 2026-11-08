@@ -41,9 +41,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Launch
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -182,6 +182,10 @@ fun openDefaultHomeSettings(context: Context) {
             context.startActivity(settingsIntent)
         } catch (_: Exception) {}
     }
+}
+
+fun promptSetDefaultLauncher(context: Context) {
+    openDefaultHomeSettings(context)
 }
 
 fun isAeroGlassDefaultLauncher(context: Context): Boolean {
@@ -522,7 +526,7 @@ fun AppDrawerScreen(
                 ) {
                     Column(modifier = Modifier.fillMaxWidth().padding(8.dp)) {
                         AppSheetActionRow(
-                            icon = Icons.Default.Launch,
+                            icon = Icons.AutoMirrored.Filled.OpenInNew,
                             label = "Open Application",
                             tint = tokens.accentPrimary,
                             onClick = {

@@ -58,16 +58,18 @@ jobs:
           SECRET_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
           KEYSTORE_FILE="${GITHUB_WORKSPACE}/my-upload-key.jks"
+          STORE_PASS="${SECRET_STORE_PASSWORD:-aeroglass_release_pass}"
+          KEY_PASS="${SECRET_KEY_PASSWORD:-$STORE_PASS}"
           if [ -n "$KEYSTORE_BASE64" ]; then
             echo "Decoding release keystore from KEYSTORE_BASE64 secret..."
             echo "$KEYSTORE_BASE64" | tr -d ' \n\r' | base64 --decode > "$KEYSTORE_FILE"
-            STORE_PASS="${SECRET_STORE_PASSWORD:-aeroglass_release_pass}"
-            KEY_PASS="${SECRET_KEY_PASSWORD:-$STORE_PASS}"
+          elif [ -f "${GITHUB_WORKSPACE}/my-upload-key.jks" ]; then
+            echo "Using existing repository my-upload-key.jks..."
+          elif [ -f "${GITHUB_WORKSPACE}/my-upload-key.jks.base64" ]; then
+            echo "Decoding repository my-upload-key.jks.base64..."
+            base64 --decode "${GITHUB_WORKSPACE}/my-upload-key.jks.base64" > "$KEYSTORE_FILE"
           else
-            echo "No KEYSTORE_BASE64 secret found; generating release signing key (alias: upload)..."
-            STORE_PASS="${SECRET_STORE_PASSWORD:-aeroglass_release_pass}"
-            KEY_PASS="${SECRET_KEY_PASSWORD:-$STORE_PASS}"
-            rm -f "$KEYSTORE_FILE"
+            echo "Generating release signing key (alias: upload)..."
             keytool -genkeypair -v \
               -keystore "$KEYSTORE_FILE" \
               -storetype PKCS12 \
@@ -146,8 +148,8 @@ jobs:
       - name: Build Signed Release APK Only
         env:
           KEYSTORE_PATH: ${{ github.workspace }}/my-upload-key.jks
-          STORE_PASSWORD: ${{ env.STORE_PASSWORD }}
-          KEY_PASSWORD: ${{ env.KEY_PASSWORD }}
+          STORE_PASSWORD: ${{ env.STORE_PASSWORD || secrets.STORE_PASSWORD || 'aeroglass_release_pass' }}
+          KEY_PASSWORD: ${{ env.KEY_PASSWORD || secrets.KEY_PASSWORD || env.STORE_PASSWORD || 'aeroglass_release_pass' }}
         run: |
           chmod +x ./gradlew || true
           ./gradlew :app:assembleRelease --no-daemon --stacktrace -Dandroid.builder.sdkDownload=true
