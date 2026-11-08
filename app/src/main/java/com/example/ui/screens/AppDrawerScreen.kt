@@ -21,6 +21,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -259,11 +260,25 @@ fun AppDrawerScreen(
         }
     }
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(horizontal = 16.dp, vertical = 8.dp)
+    BoxWithConstraints(
+        modifier = modifier.fillMaxSize()
     ) {
+        val screenWidth = maxWidth
+        val columnsCount = when {
+            screenWidth < 340.dp -> 3
+            screenWidth < 600.dp -> 4
+            screenWidth < 840.dp -> 5
+            else -> 6
+        }
+        val isNarrow = screenWidth < 360.dp
+
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .widthIn(max = 720.dp)
+                .align(Alignment.TopCenter)
+                .padding(horizontal = if (isNarrow) 10.dp else 16.dp, vertical = 8.dp)
+        ) {
         // Search Bar with Liquid Glass aesthetic
         GlassCard(
             modifier = Modifier
@@ -428,10 +443,10 @@ fun AppDrawerScreen(
             }
         } else {
             LazyVerticalGrid(
-                columns = GridCells.Fixed(4),
+                columns = GridCells.Fixed(columnsCount),
                 contentPadding = PaddingValues(top = 8.dp, bottom = 96.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalArrangement = Arrangement.spacedBy(if (isNarrow) 12.dp else 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(if (isNarrow) 8.dp else 12.dp),
                 modifier = Modifier
                     .fillMaxSize()
                     .testTag("app_drawer_grid")
@@ -450,6 +465,7 @@ fun AppDrawerScreen(
             }
         }
     }
+}
 
     // Long Press Context Sheet
     selectedAppForDetails?.let { app ->

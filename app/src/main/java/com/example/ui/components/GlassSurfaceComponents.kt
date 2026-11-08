@@ -16,6 +16,7 @@ import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -45,6 +46,8 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
@@ -188,15 +191,18 @@ fun rememberParallaxTilt(enabled: Boolean): Pair<Float, Float> {
 }
 
 /**
- * iPhone 18 / StandBy-inspired 3D Spatial Parallax Clock Widget with interactive touch-tilt
- * and real hardware accelerometer depth layers.
+ * iPhone 18 / StandBy-inspired 3D Spatial Parallax Clock Widget with interactive touch-tilt,
+ * real hardware accelerometer depth layers, dynamic specular glass glare, and adaptive screen scaling.
  */
 @Composable
 fun Spatial3DParallaxClockCard(
     parallaxEnabled: Boolean,
     refreshRateHz: Int,
     activeRemindersCount: Int,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    weatherTempCelsius: Int? = null,
+    weatherCondition: String? = null,
+    onToggleParallax: (() -> Unit)? = null
 ) {
     val tokens = LocalGlassTokens.current
     val (sensorPitch, sensorRoll) = rememberParallaxTilt(parallaxEnabled)
@@ -205,13 +211,13 @@ fun Spatial3DParallaxClockCard(
     var touchTiltY by remember { mutableFloatStateOf(0f) }
 
     val combinedTiltX by animateFloatAsState(
-        targetValue = if (parallaxEnabled) (sensorRoll + touchTiltX).coerceIn(-1.2f, 1.2f) else 0f,
-        animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+        targetValue = if (parallaxEnabled) (sensorRoll + touchTiltX).coerceIn(-1.3f, 1.3f) else 0f,
+        animationSpec = spring(stiffness = Spring.StiffnessMediumLow, dampingRatio = Spring.DampingRatioLowBouncy),
         label = "clockTiltX"
     )
     val combinedTiltY by animateFloatAsState(
-        targetValue = if (parallaxEnabled) (sensorPitch + touchTiltY).coerceIn(-1.2f, 1.2f) else 0f,
-        animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+        targetValue = if (parallaxEnabled) (sensorPitch + touchTiltY).coerceIn(-1.3f, 1.3f) else 0f,
+        animationSpec = spring(stiffness = Spring.StiffnessMediumLow, dampingRatio = Spring.DampingRatioLowBouncy),
         label = "clockTiltY"
     )
 
@@ -232,218 +238,301 @@ fun Spatial3DParallaxClockCard(
     val secText = secFormat.format(nowDate)
     val dateText = dateFormat.format(nowDate).uppercase(Locale.getDefault())
 
-    GlassCard(
-        modifier = modifier
-            .fillMaxWidth()
-            .graphicsLayer {
-                rotationY = combinedTiltX * 9f
-                rotationX = -combinedTiltY * 9f
-                cameraDistance = 16f * density
-            }
-            .pointerInput(parallaxEnabled) {
-                if (!parallaxEnabled) return@pointerInput
-                detectDragGestures(
-                    onDragEnd = {
-                        touchTiltX = 0f
-                        touchTiltY = 0f
-                    },
-                    onDragCancel = {
-                        touchTiltX = 0f
-                        touchTiltY = 0f
-                    },
-                    onDrag = { change, dragAmount ->
-                        change.consume()
-                        touchTiltX = (touchTiltX + dragAmount.x / 180f).coerceIn(-1f, 1f)
-                        touchTiltY = (touchTiltY + dragAmount.y / 180f).coerceIn(-1f, 1f)
-                    }
-                )
-            },
-        cornerRadius = 32.dp,
-        elevated = true
-    ) {
-        // Deep 3D Ambient Orb Layer (shifts opposite to foreground for depth perception)
-        Canvas(
-            modifier = Modifier
-                .matchParentSize()
-                .offset {
-                    IntOffset(
-                        x = (-combinedTiltX * 22f).roundToInt(),
-                        y = (-combinedTiltY * 18f).roundToInt()
-                    )
-                }
-        ) {
-            drawCircle(
-                brush = Brush.radialGradient(
-                    colors = listOf(
-                        tokens.accentPrimary.copy(alpha = 0.28f),
-                        Color.Transparent
-                    ),
-                    center = Offset(size.width * 0.25f, size.height * 0.45f),
-                    radius = size.width * 0.48f
-                ),
-                radius = size.width * 0.48f,
-                center = Offset(size.width * 0.25f, size.height * 0.45f)
-            )
-            drawCircle(
-                brush = Brush.radialGradient(
-                    colors = listOf(
-                        tokens.accentSecondary.copy(alpha = 0.26f),
-                        Color.Transparent
-                    ),
-                    center = Offset(size.width * 0.78f, size.height * 0.55f),
-                    radius = size.width * 0.44f
-                ),
-                radius = size.width * 0.44f,
-                center = Offset(size.width * 0.78f, size.height * 0.55f)
-            )
-        }
+    val currentSecondsInt = remember(secText) { secText.toIntOrNull() ?: 0 }
+    val secondsFraction = (currentSecondsInt / 60f).coerceIn(0f, 1f)
 
-        Column(
+    BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
+        val isCompact = maxWidth < 360.dp
+        val isTablet = maxWidth > 560.dp
+
+        val clockFontSize = if (isCompact) 56.sp else if (isTablet) 84.sp else 70.sp
+        val secFontSize = if (isCompact) 18.sp else if (isTablet) 26.sp else 22.sp
+        val cardPaddingH = if (isCompact) 16.dp else if (isTablet) 28.dp else 22.dp
+        val cardPaddingV = if (isCompact) 16.dp else if (isTablet) 24.dp else 20.dp
+
+        GlassCard(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 24.dp, vertical = 22.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+                .graphicsLayer {
+                    rotationY = combinedTiltX * 10f
+                    rotationX = -combinedTiltY * 10f
+                    cameraDistance = 16f * density
+                }
+                .pointerInput(parallaxEnabled) {
+                    if (!parallaxEnabled) return@pointerInput
+                    detectDragGestures(
+                        onDragEnd = {
+                            touchTiltX = 0f
+                            touchTiltY = 0f
+                        },
+                        onDragCancel = {
+                            touchTiltX = 0f
+                            touchTiltY = 0f
+                        },
+                        onDrag = { change, dragAmount ->
+                            change.consume()
+                            touchTiltX = (touchTiltX + dragAmount.x / 160f).coerceIn(-1.2f, 1.2f)
+                            touchTiltY = (touchTiltY + dragAmount.y / 160f).coerceIn(-1.2f, 1.2f)
+                        }
+                    )
+                },
+            cornerRadius = 32.dp,
+            elevated = true
         ) {
-            // Top Status Pill Row
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+            // Layer 0: Multi-depth ambient lighting + sweeping orbital seconds ring
+            Canvas(
+                modifier = Modifier
+                    .matchParentSize()
+                    .offset {
+                        IntOffset(
+                            x = (-combinedTiltX * 24f).roundToInt(),
+                            y = (-combinedTiltY * 20f).roundToInt()
+                        )
+                    }
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .clip(CircleShape)
-                        .background(tokens.accentPrimary.copy(alpha = 0.16f))
-                        .padding(horizontal = 10.dp, vertical = 4.dp)
-                ) {
-                    CustomGlassIcon(
-                        glyph = AeroIconGlyph.PARALLAX_3D,
-                        size = 14.dp,
-                        tint = tokens.accentPrimary
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = if (parallaxEnabled) "3D PARALLAX ACTIVE" else "STATIC GLASS",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = tokens.accentPrimary
-                    )
-                }
+                val w = size.width
+                val h = size.height
 
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .clip(CircleShape)
-                        .background(tokens.accentSecondary.copy(alpha = 0.16f))
-                        .padding(horizontal = 10.dp, vertical = 4.dp)
-                ) {
-                    Text(
-                        text = "${refreshRateHz}Hz ADAPTIVE",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = tokens.textPrimary
-                    )
-                }
+                // Ambient Radial Aura Orbs
+                drawCircle(
+                    brush = Brush.radialGradient(
+                        colors = listOf(
+                            tokens.accentPrimary.copy(alpha = 0.32f),
+                            Color.Transparent
+                        ),
+                        center = Offset(w * (0.28f + combinedTiltX * 0.1f), h * 0.45f),
+                        radius = w * 0.50f
+                    ),
+                    radius = w * 0.50f,
+                    center = Offset(w * (0.28f + combinedTiltX * 0.1f), h * 0.45f)
+                )
+
+                drawCircle(
+                    brush = Brush.radialGradient(
+                        colors = listOf(
+                            tokens.accentSecondary.copy(alpha = 0.28f),
+                            Color.Transparent
+                        ),
+                        center = Offset(w * (0.75f - combinedTiltX * 0.1f), h * 0.55f),
+                        radius = w * 0.45f
+                    ),
+                    radius = w * 0.45f,
+                    center = Offset(w * (0.75f - combinedTiltX * 0.1f), h * 0.55f)
+                )
+
+                // 60-second Spatial Orbital Progress Arc behind the clock core
+                val arcCenter = Offset(w * 0.5f, h * 0.54f)
+                val arcRadius = w * 0.42f
+                val sweepAngle = secondsFraction * 360f
+
+                drawArc(
+                    brush = Brush.sweepGradient(
+                        colors = listOf(
+                            tokens.accentPrimary.copy(alpha = 0.10f),
+                            tokens.accentPrimary.copy(alpha = 0.45f),
+                            tokens.accentSecondary.copy(alpha = 0.70f)
+                        ),
+                        center = arcCenter
+                    ),
+                    startAngle = -90f,
+                    sweepAngle = sweepAngle,
+                    useCenter = false,
+                    topLeft = Offset(arcCenter.x - arcRadius, arcCenter.y - arcRadius * 0.46f),
+                    size = androidx.compose.ui.geometry.Size(arcRadius * 2f, arcRadius * 0.92f),
+                    style = Stroke(width = 3.5f, cap = StrokeCap.Round)
+                )
+
+                // Specular Glass Glare Sheen (translates across surface based on 3D tilt angle)
+                val sheenX = w * (0.5f + combinedTiltX * 0.4f)
+                drawLine(
+                    brush = Brush.linearGradient(
+                        colors = listOf(
+                            Color.Transparent,
+                            Color.White.copy(alpha = 0.22f),
+                            Color.Transparent
+                        ),
+                        start = Offset(sheenX - 60f, 0f),
+                        end = Offset(sheenX + 60f, h)
+                    ),
+                    start = Offset(sheenX - 60f, 0f),
+                    end = Offset(sheenX + 60f, h),
+                    strokeWidth = 40f
+                )
             }
 
-            Spacer(modifier = Modifier.height(10.dp))
-
-            // 3D Extruded Time Display with Parallax Shadow Layer + Specular Foreground Layer
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier.fillMaxWidth()
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = cardPaddingH, vertical = cardPaddingV),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Extruded 3D Shadow Layer
-                Text(
-                    text = timeText,
-                    fontFamily = SpaceGroteskFontFamily,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 72.sp,
-                    letterSpacing = (-2).sp,
-                    color = tokens.accentSecondary.copy(alpha = 0.30f),
-                    modifier = Modifier.offset {
-                        IntOffset(
-                            x = (combinedTiltX * 16f + 4f).roundToInt(),
-                            y = (combinedTiltY * 14f + 6f).roundToInt()
-                        )
-                    }
-                )
-
-                // Mid Cyan Prismatic Layer
-                Text(
-                    text = timeText,
-                    fontFamily = SpaceGroteskFontFamily,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 72.sp,
-                    letterSpacing = (-2).sp,
-                    color = tokens.accentPrimary.copy(alpha = 0.45f),
-                    modifier = Modifier.offset {
-                        IntOffset(
-                            x = (-combinedTiltX * 8f - 2f).roundToInt(),
-                            y = (-combinedTiltY * 6f - 2f).roundToInt()
-                        )
-                    }
-                )
-
-                // Crisp Foreground Glass Numerals + Floating Seconds Badge
+                // Top Status Pill Row (Adaptive and interactive)
                 Row(
-                    verticalAlignment = Alignment.Bottom,
-                    modifier = Modifier.offset {
-                        IntOffset(
-                            x = (combinedTiltX * 6f).roundToInt(),
-                            y = (combinedTiltY * 6f).roundToInt()
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .clip(CircleShape)
+                            .background(tokens.accentPrimary.copy(alpha = 0.18f))
+                            .clickable(enabled = onToggleParallax != null) { onToggleParallax?.invoke() }
+                            .padding(horizontal = 10.dp, vertical = 5.dp)
+                    ) {
+                        CustomGlassIcon(
+                            glyph = AeroIconGlyph.PARALLAX_3D,
+                            size = 14.dp,
+                            tint = tokens.accentPrimary
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = if (parallaxEnabled) "3D PARALLAX" else "STATIC",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = tokens.accentPrimary
                         )
                     }
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        if (weatherTempCelsius != null) {
+                            Box(
+                                modifier = Modifier
+                                    .clip(CircleShape)
+                                    .background(tokens.accentSecondary.copy(alpha = 0.18f))
+                                    .padding(horizontal = 9.dp, vertical = 5.dp)
+                            ) {
+                                Text(
+                                    text = "$weatherTempCelsius°C ${weatherCondition.orEmpty()}".trim(),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = tokens.textPrimary
+                                )
+                            }
+                        }
+
+                        Box(
+                            modifier = Modifier
+                                .clip(CircleShape)
+                                .background(tokens.cardFillTop)
+                                .padding(horizontal = 9.dp, vertical = 5.dp)
+                        ) {
+                            Text(
+                                text = "${refreshRateHz}Hz FLUID",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.SemiBold,
+                                color = tokens.textPrimary
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // 3D Extruded Time Display with Chromatic Prism Dispersion Layers
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier.fillMaxWidth()
                 ) {
+                    // Layer 1: Extruded Violet Deep Shadow Layer
                     Text(
                         text = timeText,
                         fontFamily = SpaceGroteskFontFamily,
                         fontWeight = FontWeight.Bold,
-                        fontSize = 72.sp,
+                        fontSize = clockFontSize,
                         letterSpacing = (-2).sp,
-                        color = tokens.textPrimary
+                        color = tokens.accentSecondary.copy(alpha = 0.35f),
+                        modifier = Modifier.offset {
+                            IntOffset(
+                                x = (combinedTiltX * 18f + 4f).roundToInt(),
+                                y = (combinedTiltY * 16f + 6f).roundToInt()
+                            )
+                        }
                     )
-                    Spacer(modifier = Modifier.width(6.dp))
+
+                    // Layer 2: Mid Cyan Prismatic Specular Dispersion
                     Text(
-                        text = secText,
+                        text = timeText,
                         fontFamily = SpaceGroteskFontFamily,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = clockFontSize,
+                        letterSpacing = (-2).sp,
+                        color = tokens.accentPrimary.copy(alpha = 0.50f),
+                        modifier = Modifier.offset {
+                            IntOffset(
+                                x = (-combinedTiltX * 8f - 2f).roundToInt(),
+                                y = (-combinedTiltY * 8f - 2f).roundToInt()
+                            )
+                        }
+                    )
+
+                    // Layer 3: Crisp Foreground Glass Numerals + Floating Seconds Badge
+                    Row(
+                        verticalAlignment = Alignment.Bottom,
+                        modifier = Modifier.offset {
+                            IntOffset(
+                                x = (combinedTiltX * 5f).roundToInt(),
+                                y = (combinedTiltY * 5f).roundToInt()
+                            )
+                        }
+                    ) {
+                        Text(
+                            text = timeText,
+                            fontFamily = SpaceGroteskFontFamily,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = clockFontSize,
+                            letterSpacing = (-2).sp,
+                            color = tokens.textPrimary
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = secText,
+                            fontFamily = SpaceGroteskFontFamily,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = secFontSize,
+                            color = tokens.accentPrimary,
+                            modifier = Modifier.padding(bottom = if (isCompact) 8.dp else 12.dp)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Bottom Metadata Chips: Live Date & Active Smart Alerts
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = dateText,
+                        style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.SemiBold,
-                        fontSize = 22.sp,
-                        color = tokens.accentPrimary,
-                        modifier = Modifier.padding(bottom = 12.dp)
+                        color = tokens.textSecondary
+                    )
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Box(
+                        modifier = Modifier
+                            .size(4.dp)
+                            .clip(CircleShape)
+                            .background(tokens.accentPrimary)
+                    )
+                    Spacer(modifier = Modifier.width(10.dp))
+                    CustomGlassIcon(
+                        glyph = AeroIconGlyph.SMART_REMINDER,
+                        size = 14.dp,
+                        tint = tokens.accentPrimary
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "$activeRemindersCount Smart Alerts",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = tokens.accentPrimary
                     )
                 }
-            }
-
-            Spacer(modifier = Modifier.height(6.dp))
-
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center
-            ) {
-                Text(
-                    text = dateText,
-                    style = MaterialTheme.typography.labelLarge,
-                    color = tokens.textSecondary
-                )
-                Spacer(modifier = Modifier.width(12.dp))
-                Box(
-                    modifier = Modifier
-                        .size(4.dp)
-                        .clip(CircleShape)
-                        .background(tokens.accentPrimary)
-                )
-                Spacer(modifier = Modifier.width(12.dp))
-                CustomGlassIcon(
-                    glyph = AeroIconGlyph.SMART_REMINDER,
-                    size = 15.dp,
-                    tint = tokens.accentPrimary
-                )
-                Spacer(modifier = Modifier.width(4.dp))
-                Text(
-                    text = "$activeRemindersCount Smart Alerts",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = tokens.accentPrimary
-                )
             }
         }
     }

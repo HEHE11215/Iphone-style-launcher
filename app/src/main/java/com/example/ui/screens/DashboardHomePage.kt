@@ -11,16 +11,19 @@ import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
@@ -126,13 +129,22 @@ fun DashboardHomePage(
         isDefaultHome = isAeroGlassDefaultLauncher(context)
     }
 
-    LazyColumn(
-        modifier = modifier
-            .fillMaxSize()
-            .testTag("dashboard_home_page"),
-        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 14.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+    BoxWithConstraints(
+        modifier = modifier.fillMaxSize()
     ) {
+        val isNarrow = maxWidth < 380.dp
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .widthIn(max = 680.dp)
+                .align(Alignment.TopCenter)
+                .testTag("dashboard_home_page"),
+            contentPadding = PaddingValues(
+                horizontal = if (isNarrow) 12.dp else 20.dp,
+                vertical = 12.dp
+            ),
+            verticalArrangement = Arrangement.spacedBy(if (isNarrow) 12.dp else 16.dp)
+        ) {
         // Default Home Launcher Banner
         if (!isDefaultHome) {
             item {
@@ -198,6 +210,8 @@ fun DashboardHomePage(
                 parallaxEnabled = parallaxEnabled,
                 refreshRateHz = telemetry.displayRefreshRateHz,
                 activeRemindersCount = activeRemindersCount,
+                weatherTempCelsius = weather?.temperatureCelsius,
+                weatherCondition = weather?.conditionText,
                 modifier = Modifier.testTag("spatial_3d_clock_card")
             )
         }
@@ -696,6 +710,7 @@ fun DashboardHomePage(
         }
     }
 }
+}
 
 @Composable
 private fun FilterChipPill(
@@ -978,6 +993,7 @@ private fun HomeAppLauncherShortcut(
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
+            .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
             .clip(RoundedCornerShape(16.dp))
             .clickable(onClick = onClick)
             .padding(horizontal = 6.dp, vertical = 4.dp)
@@ -1015,7 +1031,7 @@ private fun HomeInstalledAppMiniBadge(
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
-            .width(56.dp)
+            .defaultMinSize(minWidth = 56.dp, minHeight = 48.dp)
             .clip(RoundedCornerShape(12.dp))
             .clickable(onClick = onClick)
     ) {

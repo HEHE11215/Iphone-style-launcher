@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -39,6 +40,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -237,10 +239,10 @@ fun AuthenticatedGlassWorkspace(
             val isExpandedScreen = maxWidth >= 780.dp
 
             Image(
-                painter = painterResource(id = R.drawable.img_glass_wallpaper_1794150074636),
+                painter = painterResource(id = R.drawable.img_aesthetic_glass_wallpaper_1794159551333),
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
-                alpha = if (tokens.isDark) 0.42f else 0.16f,
+                alpha = if (tokens.isDark) 0.62f else 0.32f,
                 modifier = Modifier.fillMaxSize()
             )
 
@@ -469,80 +471,92 @@ private fun TopGlassStatusHeader(
     onSelectPage: (Int) -> Unit
 ) {
     val tokens = LocalGlassTokens.current
-    Row(
+    BoxWithConstraints(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 8.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+            .padding(horizontal = 16.dp, vertical = 6.dp)
     ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            listOf("Discover", "Home", "Apps", "Control").forEachIndexed { idx, label ->
-                val active = currentPage == idx
-                Box(
-                    modifier = Modifier
-                        .clip(CircleShape)
-                        .background(if (active) tokens.accentPrimary.copy(alpha = 0.24f) else Color.Transparent)
-                        .clickable { onSelectPage(idx) }
-                        .padding(horizontal = 10.dp, vertical = 5.dp)
-                ) {
-                    Text(
-                        text = label,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = if (active) tokens.accentPrimary else tokens.textSecondary
-                    )
-                }
-            }
-        }
+        val isNarrow = maxWidth < 380.dp
 
         Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            if (isGuestSession) {
+            // Page Navigation Pills
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(if (isNarrow) 3.dp else 6.dp)
+            ) {
+                listOf("Discover", "Home", "Apps", "Control").forEachIndexed { idx, label ->
+                    val active = currentPage == idx
+                    Box(
+                        modifier = Modifier
+                            .defaultMinSize(minWidth = if (isNarrow) 36.dp else 44.dp, minHeight = 36.dp)
+                            .clip(CircleShape)
+                            .background(if (active) tokens.accentPrimary.copy(alpha = 0.24f) else Color.Transparent)
+                            .clickable { onSelectPage(idx) }
+                            .padding(horizontal = if (isNarrow) 7.dp else 10.dp, vertical = 5.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = label,
+                            style = if (isNarrow) MaterialTheme.typography.labelSmall.copy(fontSize = androidx.compose.ui.unit.TextUnit(10.5f, androidx.compose.ui.unit.TextUnitType.Sp)) else MaterialTheme.typography.labelSmall,
+                            fontWeight = if (active) FontWeight.Bold else FontWeight.Normal,
+                            color = if (active) tokens.accentPrimary else tokens.textSecondary
+                        )
+                    }
+                }
+            }
+
+            // Quick Status Chips
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                if (isGuestSession) {
+                    Box(
+                        modifier = Modifier
+                            .clip(CircleShape)
+                            .background(tokens.accentSecondary.copy(alpha = 0.22f))
+                            .clickable { onSelectPage(3) }
+                            .padding(horizontal = 7.dp, vertical = 4.dp)
+                    ) {
+                        Text(
+                            text = "GUEST",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = tokens.textPrimary
+                        )
+                    }
+                }
+                if (focusDndActive && !isNarrow) {
+                    Box(
+                        modifier = Modifier
+                            .clip(CircleShape)
+                            .background(tokens.accentSecondary.copy(alpha = 0.22f))
+                            .padding(horizontal = 7.dp, vertical = 4.dp)
+                    ) {
+                        Text(
+                            text = "DND",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = tokens.accentSecondary
+                        )
+                    }
+                }
                 Box(
                     modifier = Modifier
                         .clip(CircleShape)
-                        .background(tokens.accentSecondary.copy(alpha = 0.22f))
+                        .background(tokens.cardFillTop)
                         .clickable { onSelectPage(3) }
-                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                        .padding(horizontal = if (isNarrow) 7.dp else 9.dp, vertical = 4.dp)
                 ) {
                     Text(
-                        text = "GUEST",
+                        text = "${blurPercent}% Glass",
                         style = MaterialTheme.typography.labelSmall,
                         color = tokens.textPrimary
                     )
                 }
-            }
-            if (focusDndActive) {
-                Box(
-                    modifier = Modifier
-                        .clip(CircleShape)
-                        .background(tokens.accentSecondary.copy(alpha = 0.22f))
-                        .padding(horizontal = 8.dp, vertical = 4.dp)
-                ) {
-                    Text(
-                        text = "FOCUS DND",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = tokens.accentSecondary
-                    )
-                }
-            }
-            Box(
-                modifier = Modifier
-                    .clip(CircleShape)
-                    .background(tokens.cardFillTop)
-                    .clickable { onSelectPage(3) }
-                    .padding(horizontal = 10.dp, vertical = 4.dp)
-            ) {
-                Text(
-                    text = "Glass ${blurPercent}%",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = tokens.textPrimary
-                )
             }
         }
     }
@@ -554,49 +568,60 @@ private fun FloatingLiquidGlassDock(
     onSelectPage: (Int) -> Unit
 ) {
     val tokens = LocalGlassTokens.current
-    GlassCard(
+
+    BoxWithConstraints(
         modifier = Modifier
             .fillMaxWidth()
-            .widthIn(max = 460.dp)
-            .testTag("floating_glass_dock"),
-        cornerRadius = 32.dp,
-        elevated = true
+            .widthIn(max = 480.dp)
+            .testTag("floating_glass_dock")
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 10.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.SpaceEvenly,
-            verticalAlignment = Alignment.CenterVertically
+        val isNarrowDock = maxWidth < 370.dp
+
+        GlassCard(
+            modifier = Modifier.fillMaxWidth(),
+            cornerRadius = 32.dp,
+            elevated = true
         ) {
-            DockItem(
-                glyph = AeroIconGlyph.DISCOVER_NEWS,
-                label = "Discover",
-                selected = currentPage == 0,
-                onClick = { onSelectPage(0) },
-                testTag = "dock_tab_discover"
-            )
-            DockItem(
-                glyph = AeroIconGlyph.DASHBOARD,
-                label = "Home",
-                selected = currentPage == 1,
-                onClick = { onSelectPage(1) },
-                testTag = "dock_tab_home"
-            )
-            DockItem(
-                glyph = AeroIconGlyph.APPS_DRAWER,
-                label = "Apps",
-                selected = currentPage == 2,
-                onClick = { onSelectPage(2) },
-                testTag = "dock_tab_apps"
-            )
-            DockItem(
-                glyph = AeroIconGlyph.QUICK_SETTINGS,
-                label = "Control",
-                selected = currentPage == 3,
-                onClick = { onSelectPage(3) },
-                testTag = "dock_tab_control"
-            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = if (isNarrowDock) 6.dp else 12.dp, vertical = 6.dp),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                DockItem(
+                    glyph = AeroIconGlyph.DISCOVER_NEWS,
+                    label = "Discover",
+                    selected = currentPage == 0,
+                    compact = isNarrowDock,
+                    onClick = { onSelectPage(0) },
+                    testTag = "dock_tab_discover"
+                )
+                DockItem(
+                    glyph = AeroIconGlyph.DASHBOARD,
+                    label = "Home",
+                    selected = currentPage == 1,
+                    compact = isNarrowDock,
+                    onClick = { onSelectPage(1) },
+                    testTag = "dock_tab_home"
+                )
+                DockItem(
+                    glyph = AeroIconGlyph.APPS_DRAWER,
+                    label = "Apps",
+                    selected = currentPage == 2,
+                    compact = isNarrowDock,
+                    onClick = { onSelectPage(2) },
+                    testTag = "dock_tab_apps"
+                )
+                DockItem(
+                    glyph = AeroIconGlyph.QUICK_SETTINGS,
+                    label = "Control",
+                    selected = currentPage == 3,
+                    compact = isNarrowDock,
+                    onClick = { onSelectPage(3) },
+                    testTag = "dock_tab_control"
+                )
+            }
         }
     }
 }
@@ -606,34 +631,62 @@ private fun DockItem(
     glyph: AeroIconGlyph,
     label: String,
     selected: Boolean,
+    compact: Boolean,
     onClick: () -> Unit,
     testTag: String
 ) {
     val tokens = LocalGlassTokens.current
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
+    Box(
         modifier = Modifier
+            .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
             .clip(RoundedCornerShape(22.dp))
             .background(
                 if (selected) tokens.accentPrimary.copy(alpha = 0.24f)
                 else Color.Transparent
             )
             .clickable(onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 8.dp)
-            .testTag(testTag)
+            .padding(horizontal = if (compact) 8.dp else 12.dp, vertical = 6.dp)
+            .testTag(testTag),
+        contentAlignment = Alignment.Center
     ) {
-        CustomGlassIcon(
-            glyph = glyph,
-            size = 20.dp,
-            tint = if (selected) tokens.accentPrimary else tokens.textSecondary,
-            secondaryTint = tokens.accentSecondary
-        )
-        Spacer(modifier = Modifier.width(6.dp))
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelMedium,
-            color = if (selected) tokens.textPrimary else tokens.textSecondary
-        )
+        if (compact) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                CustomGlassIcon(
+                    glyph = glyph,
+                    size = 20.dp,
+                    tint = if (selected) tokens.accentPrimary else tokens.textSecondary,
+                    secondaryTint = tokens.accentSecondary
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.labelSmall.copy(fontSize = androidx.compose.ui.unit.TextUnit(10f, androidx.compose.ui.unit.TextUnitType.Sp)),
+                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                    color = if (selected) tokens.textPrimary else tokens.textSecondary
+                )
+            }
+        } else {
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                CustomGlassIcon(
+                    glyph = glyph,
+                    size = 20.dp,
+                    tint = if (selected) tokens.accentPrimary else tokens.textSecondary,
+                    secondaryTint = tokens.accentSecondary
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                    color = if (selected) tokens.textPrimary else tokens.textSecondary
+                )
+            }
+        }
     }
 }
 
