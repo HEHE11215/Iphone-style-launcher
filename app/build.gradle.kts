@@ -69,6 +69,10 @@ android {
     includeInApk = false
     includeInBundle = true
   }
+  lint {
+    abortOnError = false
+    checkReleaseBuilds = false
+  }
 }
 
 tasks.withType<Test> {

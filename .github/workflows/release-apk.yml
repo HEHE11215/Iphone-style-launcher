@@ -25,6 +25,8 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up JDK 21
         uses: actions/setup-java@v4
@@ -37,15 +39,16 @@ jobs:
           SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
           echo "ANDROID_HOME=$SDK_ROOT" >> "$GITHUB_ENV"
           echo "ANDROID_SDK_ROOT=$SDK_ROOT" >> "$GITHUB_ENV"
+          mkdir -p "$SDK_ROOT/licenses"
           SDKMANAGER=$(find "$SDK_ROOT/cmdline-tools" -name sdkmanager 2>/dev/null | sort -V | tail -n 1)
           if [ -n "$SDKMANAGER" ]; then
             yes | "$SDKMANAGER" --licenses > /dev/null 2>&1 || true
           fi
 
-      - name: Set up Gradle
+      - name: Set up Gradle 9.3.1
         uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: wrapper
+          gradle-version: "9.3.1"
 
       - name: Prepare Release Keystore
         id: keystore
@@ -76,6 +79,8 @@ jobs:
               -keypass "$KEY_PASS" \
               -dname "CN=AeroGlass Release, OU=Mobile, O=AeroGlass, L=San Francisco, S=CA, C=US"
           fi
+          # Also ensure a copy exists in app/ in case referenced relative to app/
+          cp -f "$KEYSTORE_FILE" "${GITHUB_WORKSPACE}/app/my-upload-key.jks" || true
           echo "KEYSTORE_PATH=$KEYSTORE_FILE" >> "$GITHUB_ENV"
           echo "STORE_PASSWORD=$STORE_PASS" >> "$GITHUB_ENV"
           echo "KEY_PASSWORD=$KEY_PASS" >> "$GITHUB_ENV"
@@ -100,7 +105,17 @@ jobs:
           fi
 
       - name: Build Signed Release APK Only
-        run: gradle :app:assembleRelease --no-daemon --stacktrace
+        env:
+          KEYSTORE_PATH: ${{ github.workspace }}/my-upload-key.jks
+          STORE_PASSWORD: ${{ env.STORE_PASSWORD }}
+          KEY_PASSWORD: ${{ env.KEY_PASSWORD }}
+        run: |
+          if [ -f ./gradlew ]; then
+            chmod +x ./gradlew
+            ./gradlew :app:assembleRelease --no-daemon --stacktrace -Dandroid.builder.sdkDownload=true
+          else
+            gradle :app:assembleRelease --no-daemon --stacktrace -Dandroid.builder.sdkDownload=true
+          fi
 
       - name: Locate & Stage Signed APK
         id: apk
@@ -137,8 +152,13 @@ jobs:
 
       - name: Publish GitHub Release with Signed APK
         uses: softprops/action-gh-release@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: ${{ steps.tag.outputs.tag_name }}
+          target_commitish: ${{ github.sha }}
           name: "AeroGlass ${{ steps.tag.outputs.tag_name }} (Signed APK)"
+          draft: false
+          prerelease: false
           generate_release_notes: true
           files: ${{ steps.apk.outputs.apk_path }}
