@@ -1,0 +1,145 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Pillar 1: Global Default-Deny Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Global Hardened Primitives
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // Validation Blueprint: UserPreferences
+    function isValidUserPreferences(data, userId) {
+      return data.userId is string &&
+             data.userId.size() >= 1 &&
+             data.userId.size() <= 128 &&
+             data.userId == request.auth.uid &&
+             data.userId == userId &&
+             data.blurIntensity is int &&
+             data.blurIntensity >= 0 &&
+             data.blurIntensity <= 100 &&
+             data.themeMode is string &&
+             data.themeMode.size() <= 32 &&
+             (data.themeMode == 'DARK_GLASS' || data.themeMode == 'LIGHT_FROST' || data.themeMode == 'AURORA_DYNAMIC') &&
+             data.iconPack is string &&
+             data.iconPack.size() <= 32 &&
+             (data.iconPack == 'LIQUID_PRISM' || data.iconPack == 'MINIMAL_LINE' || data.iconPack == 'NEON_GLYPH') &&
+             data.parallaxEnabled is bool &&
+             data.city is string &&
+             data.city.size() >= 1 &&
+             data.city.size() <= 80 &&
+             data.updatedAt is timestamp &&
+             data.updatedAt <= request.time;
+    }
+
+    // Validation Blueprint: GlassTask
+    function isValidGlassTask(data, userId) {
+      return data.userId is string &&
+             data.userId.size() >= 1 &&
+             data.userId.size() <= 128 &&
+             data.userId == request.auth.uid &&
+             data.userId == userId &&
+             data.title is string &&
+             data.title.size() >= 1 &&
+             data.title.size() <= 140 &&
+             data.notes is string &&
+             data.notes.size() >= 0 &&
+             data.notes.size() <= 500 &&
+             data.category is string &&
+             data.category.size() <= 24 &&
+             (data.category == 'FOCUS' || data.category == 'WORK' || data.category == 'PERSONAL' || data.category == 'HEALTH' || data.category == 'SYSTEM') &&
+             data.priority is string &&
+             data.priority.size() <= 16 &&
+             (data.priority == 'HIGH' || data.priority == 'MEDIUM' || data.priority == 'LOW') &&
+             data.completed is bool &&
+             data.sortOrder is int &&
+             data.sortOrder >= 0 &&
+             data.sortOrder <= 1000000 &&
+             data.reminderLabel is string &&
+             data.reminderLabel.size() >= 0 &&
+             data.reminderLabel.size() <= 80 &&
+             data.reminderEnabled is bool &&
+             data.createdAt is timestamp &&
+             data.createdAt <= request.time &&
+             data.updatedAt is timestamp &&
+             data.updatedAt <= request.time;
+    }
+
+    // UserPreferences Collection Rules
+    match /users/{userId} {
+      allow get: if isSignedIn() && isValidId(userId) && request.auth.uid == userId;
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+
+      allow create: if isSignedIn() &&
+                       isValidId(userId) &&
+                       request.auth.uid == userId &&
+                       incoming().keys().hasAll(['userId', 'blurIntensity', 'themeMode', 'iconPack', 'parallaxEnabled', 'city', 'updatedAt']) &&
+                       incoming().keys().hasOnly(['userId', 'blurIntensity', 'themeMode', 'iconPack', 'parallaxEnabled', 'city', 'updatedAt']) &&
+                       isValidUserPreferences(incoming(), userId);
+
+      allow update: if isSignedIn() &&
+                       isValidUserPreferences(incoming(), userId) &&
+                       isValidId(userId) &&
+                       request.auth.uid == userId &&
+                       existing().userId == request.auth.uid &&
+                       incoming().userId == existing().userId &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['blurIntensity', 'themeMode', 'iconPack', 'parallaxEnabled', 'city', 'updatedAt']);
+
+      allow delete: if isSignedIn() && isValidId(userId) && request.auth.uid == userId;
+
+      // GlassTask Subcollection Rules
+      match /tasks/{taskId} {
+        allow get: if isSignedIn() &&
+                      isValidId(userId) &&
+                      isValidId(taskId) &&
+                      request.auth.uid == userId &&
+                      resource.data.userId == request.auth.uid;
+
+        allow list: if isSignedIn() &&
+                       request.auth.uid == userId &&
+                       resource.data.userId == request.auth.uid;
+
+        allow create: if isSignedIn() &&
+                         isValidId(userId) &&
+                         isValidId(taskId) &&
+                         request.auth.uid == userId &&
+                         incoming().keys().hasAll(['userId', 'title', 'notes', 'category', 'priority', 'completed', 'sortOrder', 'reminderLabel', 'reminderEnabled', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['userId', 'title', 'notes', 'category', 'priority', 'completed', 'sortOrder', 'reminderLabel', 'reminderEnabled', 'createdAt', 'updatedAt']) &&
+                         isValidGlassTask(incoming(), userId);
+
+        allow update: if isSignedIn() &&
+                         isValidGlassTask(incoming(), userId) &&
+                         isValidId(userId) &&
+                         isValidId(taskId) &&
+                         request.auth.uid == userId &&
+                         existing().userId == request.auth.uid &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['title', 'notes', 'category', 'priority', 'completed', 'sortOrder', 'reminderLabel', 'reminderEnabled', 'updatedAt']);
+
+        allow delete: if isSignedIn() &&
+                         isValidId(userId) &&
+                         isValidId(taskId) &&
+                         request.auth.uid == userId &&
+                         existing().userId == request.auth.uid;
+      }
+    }
+  }
+}

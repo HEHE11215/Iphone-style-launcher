@@ -1,0 +1,133 @@
+{
+  "entities": {
+    "UserPreferences": {
+      "title": "UserPreferences",
+      "description": "Per-user glassmorphic UI customization, theme, icon pack, parallax, and weather city preferences.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Authenticated user UID owning this preference document."
+        },
+        "blurIntensity": {
+          "type": "integer",
+          "description": "Adjustable glass blur intensity percentage from 0 to 100."
+        },
+        "themeMode": {
+          "type": "string",
+          "enum": ["DARK_GLASS", "LIGHT_FROST", "AURORA_DYNAMIC"],
+          "description": "Selected glassmorphic theme mode."
+        },
+        "iconPack": {
+          "type": "string",
+          "enum": ["LIQUID_PRISM", "MINIMAL_LINE", "NEON_GLYPH"],
+          "description": "Selected custom vector icon pack style."
+        },
+        "parallaxEnabled": {
+          "type": "boolean",
+          "description": "Whether 3D gyroscope/touch parallax effect is active on clock and cards."
+        },
+        "city": {
+          "type": "string",
+          "description": "Selected city name for live weather forecast widget."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of the last preference update via FieldValue.serverTimestamp()."
+        }
+      },
+      "required": [
+        "userId",
+        "blurIntensity",
+        "themeMode",
+        "iconPack",
+        "parallaxEnabled",
+        "city",
+        "updatedAt"
+      ]
+    },
+    "GlassTask": {
+      "title": "GlassTask",
+      "description": "A user-authored task item with drag-and-drop sort order, category, priority, and smart reminder settings.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Authenticated user UID owning this task."
+        },
+        "title": {
+          "type": "string",
+          "description": "Task title (1 to 140 characters)."
+        },
+        "notes": {
+          "type": "string",
+          "description": "Task details or notes (0 to 500 characters)."
+        },
+        "category": {
+          "type": "string",
+          "enum": ["FOCUS", "WORK", "PERSONAL", "HEALTH", "SYSTEM"],
+          "description": "Task category."
+        },
+        "priority": {
+          "type": "string",
+          "enum": ["HIGH", "MEDIUM", "LOW"],
+          "description": "Task priority level."
+        },
+        "completed": {
+          "type": "boolean",
+          "description": "Whether the task is completed."
+        },
+        "sortOrder": {
+          "type": "integer",
+          "description": "Zero-indexed integer sort order for smooth drag-and-drop task management."
+        },
+        "reminderLabel": {
+          "type": "string",
+          "description": "Formatted smart reminder label or schedule."
+        },
+        "reminderEnabled": {
+          "type": "boolean",
+          "description": "Whether smart reminder alert is active for this task."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp via FieldValue.serverTimestamp()."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server update timestamp via FieldValue.serverTimestamp()."
+        }
+      },
+      "required": [
+        "userId",
+        "title",
+        "notes",
+        "category",
+        "priority",
+        "completed",
+        "sortOrder",
+        "reminderLabel",
+        "reminderEnabled",
+        "createdAt",
+        "updatedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": {
+        "$ref": "#/entities/UserPreferences"
+      },
+      "description": "Stores per-user glass UI preferences and dashboard configuration."
+    },
+    "/users/{userId}/tasks/{taskId}": {
+      "schema": {
+        "$ref": "#/entities/GlassTask"
+      },
+      "description": "Stores user-owned tasks ordered for drag-and-drop management and smart reminders."
+    }
+  }
+}
