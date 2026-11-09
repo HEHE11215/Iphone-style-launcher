@@ -77,55 +77,10 @@ fun GlassCard(
     onClick: (() -> Unit)? = null,
     content: @Composable BoxScope.() -> Unit
 ) {
-    val tokens = LocalGlassTokens.current
-    val shape = RoundedCornerShape(cornerRadius)
-
-    val fillBrush = remember(tokens, elevated) {
-        val boost = if (elevated) 1.25f else 1.0f
-        Brush.linearGradient(
-            colors = listOf(
-                tokens.cardFillTop.copy(alpha = (tokens.cardFillTop.alpha * boost).coerceIn(0f, 0.92f)),
-                tokens.cardFillBottom.copy(alpha = (tokens.cardFillBottom.alpha * boost).coerceIn(0f, 0.85f))
-            ),
-            start = Offset(0f, 0f),
-            end = Offset(700f, 700f)
-        )
-    }
-
-    val borderBrush = remember(tokens, elevated) {
-        Brush.linearGradient(
-            colors = listOf(
-                tokens.borderHighlight,
-                tokens.borderShadow,
-                tokens.borderHighlight.copy(alpha = tokens.borderHighlight.alpha * 0.45f)
-            ),
-            start = Offset(0f, 0f),
-            end = Offset(600f, 600f)
-        )
-    }
-
-    val baseMod = modifier
-        .clip(shape)
-        .background(brush = fillBrush, shape = shape)
-        .drawBehind {
-            // Top specular glass highlight line (iOS 18 refractive edge)
-            drawRoundRect(
-                brush = Brush.verticalGradient(
-                    colors = listOf(
-                        tokens.borderHighlight.copy(alpha = 0.25f * tokens.blurIntensity),
-                        Color.Transparent
-                    ),
-                    startY = 0f,
-                    endY = size.height * 0.38f
-                ),
-                cornerRadius = CornerRadius(cornerRadius.toPx(), cornerRadius.toPx())
-            )
-        }
-        .border(
-            width = if (elevated) 1.4.dp else 1.dp,
-            brush = borderBrush,
-            shape = shape
-        )
+    val baseMod = modifier.glassmorphism(
+        cornerRadius = cornerRadius,
+        elevated = elevated
+    )
 
     val clickableMod = if (onClick != null) {
         baseMod.clickable(onClick = onClick)

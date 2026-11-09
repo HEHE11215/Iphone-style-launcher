@@ -65,7 +65,9 @@ import com.example.data.model.TaskCategory
 import com.example.data.model.TaskPriority
 import com.example.ui.components.AeroIconGlyph
 import com.example.ui.components.CustomGlassIcon
-import com.example.ui.components.GlassCard
+import com.example.ui.components.glassPill
+import com.example.ui.components.glassTaskCard
+import com.example.ui.components.glassmorphism
 import com.example.ui.theme.AmberGlow
 import com.example.ui.theme.EmeraldPulse
 import com.example.ui.theme.LocalGlassTokens
@@ -73,8 +75,9 @@ import com.example.ui.theme.RoseAlert
 import com.example.ui.viewmodel.UiState
 
 /**
- * Secondary launcher page (Right Page / Page 2) dedicated to user widgets,
- * Focus Tasks, Smart Reminders, RAM Clean Booster, and battery tools.
+ * Secondary Stock Android Launcher Workspace Page (Page 2):
+ * Features Glassmorphic Task Cards using `Modifier.glassTaskCard`, `Modifier.glassPill`,
+ * and `Modifier.glassmorphism` with adjustable blur, semi-transparent backgrounds, and soft light borders.
  */
 @Composable
 fun LauncherShortcutsAndWidgetsPage(
@@ -127,12 +130,12 @@ fun LauncherShortcutsAndWidgetsPage(
                 .align(Alignment.TopCenter)
                 .testTag("launcher_widgets_page"),
             contentPadding = PaddingValues(
-                horizontal = if (isNarrow) 12.dp else 20.dp,
-                vertical = 12.dp
+                horizontal = if (isNarrow) 14.dp else 20.dp,
+                vertical = 14.dp
             ),
-            verticalArrangement = Arrangement.spacedBy(if (isNarrow) 12.dp else 16.dp)
+            verticalArrangement = Arrangement.spacedBy(if (isNarrow) 12.dp else 14.dp)
         ) {
-            // Section Header
+            // Stock Android Widget Page Header
             item {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -141,13 +144,13 @@ fun LauncherShortcutsAndWidgetsPage(
                 ) {
                     Column {
                         Text(
-                            text = "Smart Widgets",
+                            text = "Workspace & Tasks",
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
                             color = tokens.textPrimary
                         )
                         Text(
-                            text = "System Tools & Focus Tasks",
+                            text = "Glassmorphic cards • Hold & drag to reorder",
                             style = MaterialTheme.typography.bodySmall,
                             color = tokens.textSecondary
                         )
@@ -155,13 +158,12 @@ fun LauncherShortcutsAndWidgetsPage(
 
                     Box(
                         modifier = Modifier
-                            .clip(RoundedCornerShape(16.dp))
-                            .background(tokens.accentPrimary.copy(alpha = 0.18f))
+                            .glassPill(selected = true)
                             .clickable(onClick = onOpenSettingsSheet)
-                            .padding(horizontal = 12.dp, vertical = 6.dp)
+                            .padding(horizontal = 14.dp, vertical = 8.dp)
                     ) {
                         Text(
-                            text = "Settings",
+                            text = "Home Settings",
                             style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.SemiBold,
                             color = tokens.accentPrimary
@@ -170,11 +172,16 @@ fun LauncherShortcutsAndWidgetsPage(
                 }
             }
 
-            // Quick RAM & Battery Telemetry Widget
+            // Device Care / RAM & Battery Widget with reusable glassmorphism modifier
             item {
-                GlassCard(
-                    modifier = Modifier.fillMaxWidth(),
-                    cornerRadius = 24.dp
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .glassmorphism(
+                            cornerRadius = 26.dp,
+                            elevated = true,
+                            tintColor = tokens.accentPrimary
+                        )
                 ) {
                     Column(
                         modifier = Modifier
@@ -198,13 +205,13 @@ fun LauncherShortcutsAndWidgetsPage(
                                 )
                                 Column {
                                     Text(
-                                        text = "RAM Optimizer",
+                                        text = "Device Memory & ${telemetry.displayRefreshRateHz}Hz Engine",
                                         style = MaterialTheme.typography.titleMedium,
                                         fontWeight = FontWeight.SemiBold,
                                         color = tokens.textPrimary
                                     )
                                     Text(
-                                        text = "${telemetry.usedRamMb} MB / ${telemetry.totalRamMb} MB ($ramPct%)",
+                                        text = "${telemetry.usedRamMb} MB / ${telemetry.totalRamMb} MB ($ramPct%) • Battery ${telemetry.batteryPercent}%",
                                         style = MaterialTheme.typography.bodySmall,
                                         color = tokens.textSecondary
                                     )
@@ -220,7 +227,7 @@ fun LauncherShortcutsAndWidgetsPage(
                                     .testTag("quick_ram_clean_btn")
                             ) {
                                 Text(
-                                    text = "Boost RAM",
+                                    text = "Clean RAM",
                                     style = MaterialTheme.typography.labelMedium,
                                     fontWeight = FontWeight.Bold,
                                     color = Color(0xFF041326)
@@ -249,7 +256,7 @@ fun LauncherShortcutsAndWidgetsPage(
                 }
             }
 
-            // Task Management Header & Category Filter
+            // Task Management Header & Category Filter Pills
             item {
                 Column(
                     modifier = Modifier.fillMaxWidth(),
@@ -273,12 +280,11 @@ fun LauncherShortcutsAndWidgetsPage(
                             if (activeRemindersCount > 0) {
                                 Box(
                                     modifier = Modifier
-                                        .clip(CircleShape)
-                                        .background(tokens.accentPrimary.copy(alpha = 0.22f))
-                                        .padding(horizontal = 8.dp, vertical = 2.dp)
+                                        .glassPill(selected = true)
+                                        .padding(horizontal = 9.dp, vertical = 3.dp)
                                 ) {
                                     Text(
-                                        text = "$activeRemindersCount active",
+                                        text = "$activeRemindersCount reminders",
                                         style = MaterialTheme.typography.labelSmall,
                                         color = tokens.accentPrimary,
                                         fontWeight = FontWeight.Bold
@@ -290,7 +296,7 @@ fun LauncherShortcutsAndWidgetsPage(
                         IconButton(
                             onClick = onOpenAddTaskSheet,
                             modifier = Modifier
-                                .size(36.dp)
+                                .size(38.dp)
                                 .clip(CircleShape)
                                 .background(tokens.accentPrimary)
                                 .testTag("add_task_header_btn")
@@ -304,7 +310,7 @@ fun LauncherShortcutsAndWidgetsPage(
                         }
                     }
 
-                    // Category Pill Row
+                    // Category Filter Row using Modifier.glassPill
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -330,7 +336,7 @@ fun LauncherShortcutsAndWidgetsPage(
                 }
             }
 
-            // Draggable Tasks List
+            // Draggable Glassmorphic Tasks List
             when (tasksUiState) {
                 is UiState.Loading -> {
                     item {
@@ -349,12 +355,13 @@ fun LauncherShortcutsAndWidgetsPage(
                 }
                 is UiState.Error -> {
                     item {
-                        GlassCard(
-                            modifier = Modifier.fillMaxWidth(),
-                            cornerRadius = 20.dp
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .glassmorphism(cornerRadius = 20.dp, tintColor = RoseAlert)
                         ) {
                             Text(
-                                text = "Unable to load cloud tasks: ${tasksUiState.message}",
+                                text = "Unable to load tasks: ${tasksUiState.message}",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = RoseAlert,
                                 modifier = Modifier.padding(16.dp)
@@ -365,9 +372,10 @@ fun LauncherShortcutsAndWidgetsPage(
                 is UiState.Success -> {
                     if (draggableTasks.isEmpty()) {
                         item {
-                            GlassCard(
-                                modifier = Modifier.fillMaxWidth(),
-                                cornerRadius = 24.dp
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .glassmorphism(cornerRadius = 24.dp)
                             ) {
                                 Column(
                                     modifier = Modifier
@@ -377,24 +385,23 @@ fun LauncherShortcutsAndWidgetsPage(
                                     verticalArrangement = Arrangement.spacedBy(10.dp)
                                 ) {
                                     CustomGlassIcon(
-                                        glyph = AeroIconGlyph.DASHBOARD,
+                                        glyph = AeroIconGlyph.TASKS,
                                         size = 36.dp,
                                         tint = tokens.textSecondary
                                     )
                                     Text(
-                                        text = "No focus tasks yet",
+                                        text = "No tasks in this view",
                                         style = MaterialTheme.typography.bodyMedium,
                                         color = tokens.textSecondary
                                     )
                                     Box(
                                         modifier = Modifier
-                                            .clip(RoundedCornerShape(14.dp))
-                                            .background(tokens.accentPrimary.copy(alpha = 0.22f))
+                                            .glassPill(selected = true)
                                             .clickable(onClick = onOpenAddTaskSheet)
-                                            .padding(horizontal = 14.dp, vertical = 8.dp)
+                                            .padding(horizontal = 16.dp, vertical = 9.dp)
                                     ) {
                                         Text(
-                                            text = "+ Create First Task",
+                                            text = "+ New Glass Task",
                                             style = MaterialTheme.typography.labelMedium,
                                             fontWeight = FontWeight.Bold,
                                             color = tokens.accentPrimary
@@ -495,9 +502,9 @@ fun LauncherShortcutsAndWidgetsPage(
                 }
             }
 
-            // Bottom Spacing for fixed dock
+            // Bottom Spacing for fixed stock Android dock + search bar
             item {
-                Spacer(modifier = Modifier.height(88.dp))
+                Spacer(modifier = Modifier.height(150.dp))
             }
         }
     }
@@ -516,13 +523,9 @@ private fun CategoryPill(
     Box(
         modifier = Modifier
             .defaultMinSize(minHeight = 36.dp)
-            .clip(RoundedCornerShape(18.dp))
-            .background(
-                if (isSelected) tokens.accentPrimary.copy(alpha = 0.28f)
-                else Color.White.copy(alpha = if (tokens.isDark) 0.08f else 0.45f)
-            )
+            .glassPill(selected = isSelected, accentColor = tokens.accentPrimary)
             .clickable(onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 6.dp),
+            .padding(horizontal = 13.dp, vertical = 7.dp),
         contentAlignment = Alignment.Center
     ) {
         Row(
@@ -544,6 +547,10 @@ private fun CategoryPill(
     }
 }
 
+/**
+ * Task Card styled via the reusable `Modifier.glassTaskCard` modifier
+ * (blur-responsive translucency, semi-transparent tinted fill, and soft top-left light border).
+ */
 @Composable
 private fun DraggableGlassTaskCard(
     task: GlassTask,
@@ -566,22 +573,27 @@ private fun DraggableGlassTaskCard(
         TaskPriority.LOW -> EmeraldPulse
     }
 
-    GlassCard(
+    Box(
         modifier = modifier
             .fillMaxWidth()
             .graphicsLayer {
                 translationY = offsetY
                 scaleX = if (isDragged) 1.03f else 1f
                 scaleY = if (isDragged) 1.03f else 1f
-                alpha = if (task.completed) 0.65f else 1f
-            },
-        cornerRadius = 20.dp,
-        elevated = isDragged
+                alpha = if (task.completed) 0.68f else 1f
+            }
+            .glassTaskCard(
+                cornerRadius = 22.dp,
+                isDragged = isDragged,
+                completed = task.completed,
+                priorityAccent = priorityColor
+            )
+            .testTag("task_card_${task.id}")
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(14.dp),
+                .padding(horizontal = 14.dp, vertical = 13.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
@@ -592,7 +604,7 @@ private fun DraggableGlassTaskCard(
                     .clip(CircleShape)
                     .background(
                         if (task.completed) EmeraldPulse
-                        else Color.White.copy(alpha = 0.12f)
+                        else Color.White.copy(alpha = 0.14f)
                     )
                     .clickable(onClick = onToggleComplete),
                 contentAlignment = Alignment.Center
@@ -607,7 +619,7 @@ private fun DraggableGlassTaskCard(
                 }
             }
 
-            // Title & Category
+            // Title, Category & Notes
             Column(modifier = Modifier.weight(1f)) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,

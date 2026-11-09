@@ -21,6 +21,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -46,6 +47,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -54,6 +58,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -64,6 +69,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
@@ -83,6 +89,9 @@ import com.example.data.repository.GlassDashboardRepository
 import com.example.ui.components.AeroIconGlyph
 import com.example.ui.components.CustomGlassIcon
 import com.example.ui.components.GlassCard
+import com.example.ui.components.glassDockShelf
+import com.example.ui.components.glassPill
+import com.example.ui.components.glassmorphism
 import com.example.ui.screens.AddTaskModalSheet
 import com.example.ui.screens.AppDrawerScreen
 import com.example.ui.screens.AuthScreen
@@ -90,6 +99,7 @@ import com.example.ui.screens.DashboardHomePage
 import com.example.ui.screens.DiscoverFeedPage
 import com.example.ui.screens.LauncherSettingsModalSheet
 import com.example.ui.screens.LauncherShortcutsAndWidgetsPage
+import com.example.ui.screens.launchBrowser
 import com.example.ui.screens.launchCamera
 import com.example.ui.screens.launchMessages
 import com.example.ui.screens.launchPhone
@@ -97,6 +107,7 @@ import com.example.ui.screens.signOut
 import com.example.ui.theme.AeroGlassTheme
 import com.example.ui.theme.LocalGlassTokens
 import com.example.ui.viewmodel.GlassDashboardViewModel
+import com.example.ui.viewmodel.UiState
 import com.google.firebase.Firebase
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.auth
@@ -195,6 +206,14 @@ fun AuthenticatedGlassWorkspace(
     val selectedCategory by viewModel.selectedCategoryFilter.collectAsStateWithLifecycle()
     val statusBanner by viewModel.statusBannerMessage.collectAsStateWithLifecycle()
 
+    val rawTasks = (tasksState as? UiState.Success)?.data.orEmpty()
+    val activeRemindersCount = remember(rawTasks) {
+        rawTasks.count { it.reminderEnabled && !it.completed }
+    }
+    val pendingTasksCount = remember(rawTasks) {
+        rawTasks.count { !it.completed }
+    }
+
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { _ -> }
@@ -226,10 +245,9 @@ fun AuthenticatedGlassWorkspace(
     var isSettingsSheetOpen by rememberSaveable { mutableStateOf(false) }
     var showAddTaskSheet by remember { mutableStateOf(false) }
 
-    // Page 0 = Discover & Weather, Page 1 = Pristine Home (3D Clock), Page 2 = Widgets & Tasks
+    // Page 0 = Google Discover (-1 screen), Page 1 = Stock Android Home, Page 2 = Glass Task Cards & Widgets
     val pagerState = rememberPagerState(initialPage = 1, pageCount = { 3 })
 
-    // Back handling: If drawer open, close drawer; else if not on home, go home
     BackHandler(enabled = isAppDrawerOpen) {
         isAppDrawerOpen = false
     }
@@ -262,7 +280,7 @@ fun AuthenticatedGlassWorkspace(
                 painter = painterResource(id = R.drawable.img_aesthetic_glass_wallpaper_1794159551333),
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
-                alpha = if (tokens.isDark) 0.62f else 0.32f,
+                alpha = if (tokens.isDark) 0.65f else 0.35f,
                 modifier = Modifier.fillMaxSize()
             )
 
@@ -292,10 +310,13 @@ fun AuthenticatedGlassWorkspace(
                             weather = weather,
                             telemetry = telemetry,
                             parallaxEnabled = preferences.parallaxEnabled,
+                            activeRemindersCount = activeRemindersCount,
+                            pendingTasksCount = pendingTasksCount,
                             onOpenAppDrawer = { isAppDrawerOpen = true },
                             onOpenDiscoverFeed = { scope.launch { pagerState.animateScrollToPage(0) } },
                             onOpenWidgetsPage = { scope.launch { pagerState.animateScrollToPage(2) } },
-                            onOpenSettingsSheet = { isSettingsSheetOpen = true }
+                            onOpenSettingsSheet = { isSettingsSheetOpen = true },
+                            onQuickRamClean = { viewModel.performRamCleanBoost(context) }
                         )
                     }
 
@@ -336,27 +357,17 @@ fun AuthenticatedGlassWorkspace(
                         .fillMaxSize()
                         .windowInsetsPadding(WindowInsets.statusBars)
                 ) {
-                    TopGlassStatusHeader(
-                        currentPage = pagerState.currentPage,
-                        blurPercent = preferences.blurIntensity.toInt(),
-                        focusDndActive = quickSettings.focusDndEnabled,
-                        isGuestSession = isGuestSession,
-                        onSelectPage = { page ->
-                            scope.launch { pagerState.animateScrollToPage(page) }
-                        },
-                        onOpenSettings = { isSettingsSheetOpen = true }
-                    )
-
+                    // Transient Status Toast Banner (e.g., after RAM boost or Smart Reminder)
                     AnimatedVisibility(
                         visible = statusBanner != null,
                         enter = fadeIn(),
                         exit = fadeOut()
                     ) {
-                        GlassCard(
+                        Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 20.dp, vertical = 4.dp),
-                            cornerRadius = 16.dp
+                                .padding(horizontal = 20.dp, vertical = 4.dp)
+                                .glassmorphism(cornerRadius = 16.dp, elevated = true)
                         ) {
                             Text(
                                 text = statusBanner.orEmpty(),
@@ -385,10 +396,13 @@ fun AuthenticatedGlassWorkspace(
                                 weather = weather,
                                 telemetry = telemetry,
                                 parallaxEnabled = preferences.parallaxEnabled,
+                                activeRemindersCount = activeRemindersCount,
+                                pendingTasksCount = pendingTasksCount,
                                 onOpenAppDrawer = { isAppDrawerOpen = true },
                                 onOpenDiscoverFeed = { scope.launch { pagerState.animateScrollToPage(0) } },
                                 onOpenWidgetsPage = { scope.launch { pagerState.animateScrollToPage(2) } },
-                                onOpenSettingsSheet = { isSettingsSheetOpen = true }
+                                onOpenSettingsSheet = { isSettingsSheetOpen = true },
+                                onQuickRamClean = { viewModel.performRamCleanBoost(context) }
                             )
                             else -> LauncherShortcutsAndWidgetsPage(
                                 tasksUiState = tasksState,
@@ -413,14 +427,15 @@ fun AuthenticatedGlassWorkspace(
                     }
                 }
 
-                // Fixed 5-Icon Glass Shelf pinned at bottom
+                // Authentic Stock Android / Pixel Launcher Pinned Bottom Zone:
+                // Page Dots + 5-Icon Dock + Bottom Google Search Bar
                 Box(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .windowInsetsPadding(WindowInsets.navigationBars)
-                        .padding(horizontal = 20.dp, vertical = 10.dp)
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
                 ) {
-                    FloatingLiquidGlassDock(
+                    StockAndroidLauncherBottomZone(
                         currentPage = pagerState.currentPage,
                         isDrawerOpen = isAppDrawerOpen,
                         onSelectPage = { page ->
@@ -433,7 +448,7 @@ fun AuthenticatedGlassWorkspace(
                 }
             }
 
-            // Slide-Up App Drawer Overlay with Real Frosted Glass Blur Backdrop
+            // Slide-Up App Drawer Overlay with Frosted Glass Blur Backdrop
             AnimatedVisibility(
                 visible = isAppDrawerOpen,
                 enter = slideInVertically(
@@ -454,7 +469,10 @@ fun AuthenticatedGlassWorkspace(
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(Color.Black.copy(alpha = if (tokens.isDark) 0.68f else 0.42f))
+                        .background(
+                            if (tokens.isDark) Color(0xD80A0C12)
+                            else Color(0xD8EEF2F6)
+                        )
                 ) {
                     Column(
                         modifier = Modifier
@@ -462,7 +480,7 @@ fun AuthenticatedGlassWorkspace(
                             .windowInsetsPadding(WindowInsets.statusBars)
                             .windowInsetsPadding(WindowInsets.navigationBars)
                     ) {
-                        // Drag-down handle bar to close drawer
+                        // Stock Android App Drawer Pull-Down Pill Handle
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -471,8 +489,7 @@ fun AuthenticatedGlassWorkspace(
                         ) {
                             Box(
                                 modifier = Modifier
-                                    .clip(CircleShape)
-                                    .background(Color.White.copy(alpha = 0.28f))
+                                    .glassPill()
                                     .clickable { isAppDrawerOpen = false }
                                     .padding(horizontal = 18.dp, vertical = 6.dp)
                             ) {
@@ -483,14 +500,14 @@ fun AuthenticatedGlassWorkspace(
                                     Icon(
                                         imageVector = Icons.Default.KeyboardArrowDown,
                                         contentDescription = "Close App Drawer",
-                                        tint = Color.White,
+                                        tint = tokens.textPrimary,
                                         modifier = Modifier.size(18.dp)
                                     )
                                     Text(
-                                        text = "Close Apps",
+                                        text = "All Apps",
                                         style = MaterialTheme.typography.labelSmall,
                                         fontWeight = FontWeight.SemiBold,
-                                        color = Color.White
+                                        color = tokens.textPrimary
                                     )
                                 }
                             }
@@ -552,103 +569,14 @@ fun AuthenticatedGlassWorkspace(
     }
 }
 
+/**
+ * Authentic Stock Android / Pixel Launcher Bottom Zone:
+ * - Swipe-up chevron + 3 page indicator dots
+ * - 5-Icon Pinned Favorites Dock inside a `.glassDockShelf()`
+ * - Bottom Google Search Bar Pill (`.glassPill()`) with G logo, Voice Mic, and Launcher Settings trigger
+ */
 @Composable
-private fun TopGlassStatusHeader(
-    currentPage: Int,
-    blurPercent: Int,
-    focusDndActive: Boolean,
-    isGuestSession: Boolean,
-    onSelectPage: (Int) -> Unit,
-    onOpenSettings: () -> Unit
-) {
-    val tokens = LocalGlassTokens.current
-    BoxWithConstraints(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 6.dp)
-    ) {
-        val isNarrow = maxWidth < 380.dp
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Left: Clean stock launcher indicator
-            Box(
-                modifier = Modifier
-                    .clip(CircleShape)
-                    .background(tokens.accentPrimary.copy(alpha = 0.18f))
-                    .clickable { onSelectPage(1) }
-                    .padding(horizontal = 12.dp, vertical = 5.dp)
-            ) {
-                Text(
-                    text = when (currentPage) {
-                        0 -> "Google Discover"
-                        2 -> "Widgets & Tasks"
-                        else -> "AeroGlass Home"
-                    },
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = tokens.accentPrimary
-                )
-            }
-
-            // Right: Quick Status Chips (Guest, DND, Settings trigger)
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                if (isGuestSession) {
-                    Box(
-                        modifier = Modifier
-                            .clip(CircleShape)
-                            .background(tokens.accentSecondary.copy(alpha = 0.22f))
-                            .clickable(onClick = onOpenSettings)
-                            .padding(horizontal = 8.dp, vertical = 4.dp)
-                    ) {
-                        Text(
-                            text = "GUEST",
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = tokens.textPrimary
-                        )
-                    }
-                }
-                if (focusDndActive && !isNarrow) {
-                    Box(
-                        modifier = Modifier
-                            .clip(CircleShape)
-                            .background(tokens.accentSecondary.copy(alpha = 0.22f))
-                            .padding(horizontal = 8.dp, vertical = 4.dp)
-                    ) {
-                        Text(
-                            text = "DND",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = tokens.accentSecondary
-                        )
-                    }
-                }
-                Box(
-                    modifier = Modifier
-                        .clip(CircleShape)
-                        .background(tokens.cardFillTop)
-                        .clickable(onClick = onOpenSettings)
-                        .padding(horizontal = 10.dp, vertical = 4.dp)
-                ) {
-                    Text(
-                        text = "${blurPercent}% Glass",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = tokens.textPrimary
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun FloatingLiquidGlassDock(
+private fun StockAndroidLauncherBottomZone(
     currentPage: Int,
     isDrawerOpen: Boolean,
     onSelectPage: (Int) -> Unit,
@@ -657,25 +585,50 @@ private fun FloatingLiquidGlassDock(
 ) {
     val tokens = LocalGlassTokens.current
     val context = LocalContext.current
+    var dockSwipeAccumulator by remember { mutableFloatStateOf(0f) }
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
             .fillMaxWidth()
-            .widthIn(max = 460.dp)
+            .widthIn(max = 480.dp)
+            .pointerInput(Unit) {
+                detectVerticalDragGestures(
+                    onVerticalDrag = { change, dragAmount ->
+                        change.consume()
+                        dockSwipeAccumulator += dragAmount
+                        if (dockSwipeAccumulator < -28f) {
+                            dockSwipeAccumulator = 0f
+                            if (!isDrawerOpen) onToggleAppDrawer()
+                        }
+                    },
+                    onDragEnd = { dockSwipeAccumulator = 0f },
+                    onDragCancel = { dockSwipeAccumulator = 0f }
+                )
+            }
             .testTag("floating_glass_dock")
     ) {
-        // Subtle 3-Page Indicator Dots: Discover (0), Home (1), Widgets (2)
+        // Swipe-up Chevron & Page Indicator Dots (Discover = 0, Home = 1, Tasks/Widgets = 2)
         Row(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(bottom = 6.dp)
+            modifier = Modifier
+                .clickable(onClick = onToggleAppDrawer)
+                .padding(bottom = 6.dp)
+                .testTag("swipe_up_apps_trigger")
         ) {
+            Icon(
+                imageVector = Icons.Default.KeyboardArrowUp,
+                contentDescription = "Swipe up for All Apps",
+                tint = tokens.textSecondary.copy(alpha = 0.75f),
+                modifier = Modifier.size(16.dp)
+            )
             repeat(3) { idx ->
                 val active = currentPage == idx
                 Box(
                     modifier = Modifier
-                        .size(if (active) 8.dp else 5.dp)
+                        .width(if (active) 16.dp else 6.dp)
+                        .height(6.dp)
                         .clip(CircleShape)
                         .background(
                             if (active) tokens.accentPrimary
@@ -686,11 +639,11 @@ private fun FloatingLiquidGlassDock(
             }
         }
 
-        // Fixed Stock Android & iPhone 5-Icon Glass Shelf
-        GlassCard(
-            modifier = Modifier.fillMaxWidth(),
-            cornerRadius = 32.dp,
-            elevated = true
+        // Fixed 5-Icon Stock Android Dock
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .glassDockShelf(cornerRadius = 28.dp)
         ) {
             Row(
                 modifier = Modifier
@@ -699,7 +652,7 @@ private fun FloatingLiquidGlassDock(
                 horizontalArrangement = Arrangement.SpaceAround,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // 1. Phone App (Dialer)
+                // 1. Phone Dialer
                 StockDockAppIcon(
                     glyph = AeroIconGlyph.PHONE,
                     label = "Phone",
@@ -709,7 +662,7 @@ private fun FloatingLiquidGlassDock(
                     testTag = "dock_app_phone"
                 )
 
-                // 2. Messages App (SMS)
+                // 2. Messages (SMS)
                 StockDockAppIcon(
                     glyph = AeroIconGlyph.MESSAGES,
                     label = "Messages",
@@ -719,14 +672,14 @@ private fun FloatingLiquidGlassDock(
                     testTag = "dock_app_messages"
                 )
 
-                // 3. Central Launcher Button (Slide-up App Drawer Trigger)
+                // 3. Center App Drawer Trigger
                 StockDockAppIcon(
                     glyph = if (isDrawerOpen) AeroIconGlyph.DASHBOARD else AeroIconGlyph.APPS_DRAWER,
-                    label = if (isDrawerOpen) "Close" else "Apps",
+                    label = if (isDrawerOpen) "Home" else "Apps",
                     containerBrush = Brush.linearGradient(
                         listOf(
-                            tokens.accentPrimary.copy(alpha = 0.35f),
-                            tokens.accentSecondary.copy(alpha = 0.25f)
+                            tokens.accentPrimary.copy(alpha = 0.38f),
+                            tokens.accentSecondary.copy(alpha = 0.28f)
                         )
                     ),
                     glyphTint = tokens.accentPrimary,
@@ -735,7 +688,7 @@ private fun FloatingLiquidGlassDock(
                     testTag = "dock_app_drawer"
                 )
 
-                // 4. Camera App
+                // 4. Camera
                 StockDockAppIcon(
                     glyph = AeroIconGlyph.CAMERA,
                     label = "Camera",
@@ -745,7 +698,7 @@ private fun FloatingLiquidGlassDock(
                     testTag = "dock_app_camera"
                 )
 
-                // 5. Settings / Control Center
+                // 5. Launcher Settings / Glass Customization
                 StockDockAppIcon(
                     glyph = AeroIconGlyph.QUICK_SETTINGS,
                     label = "Settings",
@@ -754,6 +707,101 @@ private fun FloatingLiquidGlassDock(
                     onClick = onOpenSettings,
                     testTag = "dock_app_settings"
                 )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Iconic Stock Android / Pixel Bottom Google Search Pill
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .glassPill()
+                .clickable { launchBrowser(context) }
+                .testTag("google_search_bar_card")
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    // Google "G" Badge
+                    Box(
+                        modifier = Modifier
+                            .size(26.dp)
+                            .clip(CircleShape)
+                            .background(
+                                Brush.linearGradient(
+                                    listOf(
+                                        Color(0xFF4285F4),
+                                        Color(0xFFEA4335),
+                                        Color(0xFFFBBC05),
+                                        Color(0xFF34A853)
+                                    )
+                                )
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "G",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                    }
+
+                    Text(
+                        text = "Search apps & web...",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = tokens.textSecondary
+                    )
+                }
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    // Voice Search Mic
+                    Box(
+                        modifier = Modifier
+                            .size(32.dp)
+                            .clip(CircleShape)
+                            .background(tokens.accentPrimary.copy(alpha = 0.16f))
+                            .clickable { launchBrowser(context) },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Mic,
+                            contentDescription = "Voice Search",
+                            tint = tokens.accentPrimary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+
+                    // Quick Glass Blur / Launcher Settings Button
+                    Box(
+                        modifier = Modifier
+                            .size(32.dp)
+                            .clip(CircleShape)
+                            .background(tokens.accentSecondary.copy(alpha = 0.16f))
+                            .clickable(onClick = onOpenSettings),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Tune,
+                            contentDescription = "Launcher Glass Settings",
+                            tint = tokens.textPrimary,
+                            modifier = Modifier.size(17.dp)
+                        )
+                    }
+                }
             }
         }
     }
@@ -765,7 +813,6 @@ private fun StockDockAppIcon(
     label: String,
     containerBrush: Brush,
     glyphTint: Color,
-    selected: Boolean = false,
     isCenterKey: Boolean = false,
     onClick: () -> Unit,
     testTag: String
